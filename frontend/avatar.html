@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Airi - 오프라인 음성 어시스턴트</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'Segoe UI', sans-serif; color: #eee; overflow: hidden;
+  }
+  #avatar-container {
+    width: 400px; height: 500px; position: relative;
+  }
+  canvas#live2d { width: 100%; height: 100%; }
+  #emotion-badge {
+    position: absolute; top: 10px; right: 10px;
+    background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);
+    border-radius: 20px; padding: 6px 14px; font-size: 13px;
+    transition: all 0.3s ease;
+  }
+  #speech-bubble {
+    max-width: 480px; background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 16px; padding: 16px 20px; margin-top: 16px;
+    font-size: 15px; line-height: 1.6; min-height: 56px;
+    transition: opacity 0.3s ease;
+  }
+  #speech-bubble.speaking { border-color: #a78bfa; box-shadow: 0 0 12px #a78bfa55; }
+  #status-bar {
+    margin-top: 12px; font-size: 12px; opacity: 0.5;
+    display: flex; gap: 16px;
+  }
+
+  .emotion-happy     { color: #fbbf24; }
+  .emotion-sad       { color: #60a5fa; }
+  .emotion-angry     { color: #f87171; }
+  .emotion-surprised { color: #34d399; }
+  .emotion-shy       { color: #f9a8d4; }
+  .emotion-thinking  { color: #c084fc; }
+  .emotion-neutral   { color: #9ca3af; }
+</style>
+</head>
+<body>
+
+<div id="avatar-container">
+  <canvas id="live2d" width="400" height="500"></canvas>
+  <div id="emotion-badge">😊 neutral</div>
+</div>
+
+<div id="speech-bubble">안녕하세요! 저는 아이리예요~</div>
+
+<div id="status-bar">
+  <span id="status-ws">🔴 연결 중...</span>
+  <span id="status-turn">0턴</span>
+  <span id="status-memory">기억: 0개</span>
+</div>
+
+<script>
+const EMOTION_EMOJI = {
+  neutral: "😊", happy: "😄", sad: "😢",
+  angry: "😠", surprised: "😲", shy: "😳", thinking: "🤔"
+};
+
+const WS_URL = "ws://localhost:8000/ws/avatar";
+let ws, reconnectTimer;
+
+function connect() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    document.getElementById("status-ws").textContent = "🟢 연결됨";
+    clearTimeout(reconnectTimer);
+  };
+
+  ws.onclose = () => {
+    document.getElementById("status-ws").textContent = "🔴 연결 끊김";
+    reconnectTimer = setTimeout(connect, 3000);
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    handleMessage(msg);
+  };
+}
+function handleMessage(msg) {
+  switch (msg.type) {
+
+    case "emotion":
+      updateEmotion(msg.emotion);
+      if (msg.text) updateSpeechBubble(msg.text, false);
+      updateLive2D(msg.live2d);
+      break;
+
+    case "speaking":
+      const bubble = document.getElementById("speech-bubble");
+      bubble.classList.toggle("speaking", msg.is_speaking);
+      if (msg.text) updateSpeechBubble(msg.text, msg.is_speaking);
+      break;
+
+    case "state":
+      updateEmotion(msg.current);
+      document.getElementById("status-turn").textContent =
+        `${msg.turn || 0}턴`;
+      break;
+
+    case "stt":
+      console.log("사용자:", msg.text);
+      break;
+  }
+}
+
+function updateEmotion(emotion) {
+  const badge = document.getElementById("emotion-badge");
+  const emoji = EMOTION_EMOJI[emotion] || "😊";
+  badge.textContent = `${emoji} ${emotion}`;
+  badge.className = `emotion-${emotion}`;
+}
+
+function updateSpeechBubble(text, isSpeaking) {
+  const bubble = document.getElementById("speech-bubble");
+  bubble.textContent = text;
+  bubble.classList.toggle("speaking", isSpeaking);
+}
+
+// ── Live2D 파라미터 적용 (Cubism SDK 연동 시 활성화) ──────
+function updateLive2D(params) {
+  // 실제 Live2D SDK 사용 시:
+  // if (window.live2dModel) {
+  //   live2dModel.internalModel.coreModel.setParameterValueById(
+  //     "ParamEyeOpen", params.ParamEyeOpen
+  //   );
+  // }
+  console.log("[Live2D] params:", params);
+
+  // 임시: canvas에 감정 텍스트 표시
+  const canvas = document.getElementById("live2d");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, 400, 500);
+  ctx.fillStyle = "rgba(255,255,255,0.05)";
+  ctx.fillRect(0, 0, 400, 500);
+  ctx.fillStyle = "#ffffff44";
+  ctx.font = "120px serif";
+  ctx.textAlign = "center";
+  ctx.fillText(
+    document.getElementById("emotion-badge").textContent.split(" ")[0],
+    200, 280
+  );
+  ctx.font = "14px sans-serif";
+  ctx.fillStyle = "#ffffff33";
+  ctx.fillText("Live2D 모델을 연결하세요", 200, 460);
+}
+
+connect();
+</script>
+</body>
+</html>
