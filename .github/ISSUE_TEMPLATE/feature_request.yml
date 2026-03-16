@@ -1,23 +1,26 @@
 name: "Feature"
-title : "Feat# "
+title: "Feat# "
 description: "새로운 기능 추가"
 labels: ["enhancement"]
 body:
   - type: textarea
+    id: feature_description
     attributes:
-      label:  작업할 내용
+      label: 작업할 내용
       description: 새로운 기능에 대한 설명을 작성해 주세요.
       placeholder: 자세히 적을수록 좋습니다!
     validations:
       required: true
   - type: checkboxes
+    id: task_list
     attributes:
       label: 작업 항목
       options:
-      - 
-      - 
-      - 
+        - label: 1.  
+        - label: 2. 
+        - label: 3. 
   - type: textarea
+    id: reviewer_description
     attributes:
       label: 알야아 할 것
       description: 리뷰어들이 알아야할 것이 있다면 작성해 주세요.
