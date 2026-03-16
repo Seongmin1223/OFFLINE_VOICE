@@ -1,0 +1,22 @@
+name: "Bug"
+title : "Bug# "
+description: "버그 발생"
+labels: ["critical"]
+body:
+  - type: textarea
+    attributes:
+      label:  버그 설명
+      description: 버그에 대한 설명을 작성해 주세요.
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: 버그 항목
+      options:
+      - 
+      - 
+      - 
+  - type: textarea
+    attributes:
+      label: 알야아 할 것
+      description: 리뷰어들이 알아야할 것이 있다면 작성해 주세요.
