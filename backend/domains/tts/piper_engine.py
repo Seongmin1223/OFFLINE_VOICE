@@ -5,6 +5,7 @@ import numpy as np
 import sounddevice as sd
 from kokoro_onnx import Kokoro
 from domains.tts.models import TTSRequest
+from config import config
 
 
 _kokoro_instance = None
@@ -14,8 +15,8 @@ def get_kokoro() -> Kokoro:
     if _kokoro_instance is None:
         print("[TTS] kokoro 모델 로딩 중... (최초 1회)")
         _kokoro_instance = Kokoro(
-            r"C:\dev\kokoro-v1.0.onnx",
-            r"C:\dev\voices-v1.0.bin"
+            config.TTS_MODEL,
+            config.TTS_CONFIG
         )
         print("[TTS] kokoro 모델 로딩 완료")
     return _kokoro_instance
