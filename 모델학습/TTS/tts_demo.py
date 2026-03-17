@@ -6,8 +6,8 @@ import uroman as ur
 
 print("한국어 TTS 모델을 불러오는 중...")
 
-model = VitsModel.from_pretrained("facebook/mms-tts-kor")
-tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-kor")
+model = VitsModel.from_pretrained("./models/mms-tts-kor")
+tokenizer = AutoTokenizer.from_pretrained("./models/mms-tts-kor")
 
 text = "안녕 윤호야? 오늘 학업은 좀 어때? 내가 도와줄 일이 있으면 언제든 말해!"
 
