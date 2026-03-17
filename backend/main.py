@@ -29,7 +29,7 @@ def create_app(pipeline: VoicePipeline) -> FastAPI:
     app.mount(
         "/live2d",
         StaticFiles(
-            directory=r"C:\dev\CubismSdkForWeb\Samples\TypeScript\Demo\dist",
+            directory=config.LIVE2D_DIST_PATH,
             html=True,
         ),
         name="live2d",
@@ -37,7 +37,7 @@ def create_app(pipeline: VoicePipeline) -> FastAPI:
     app.mount(
         "/Resources",
         StaticFiles(
-            directory=r"C:\dev\CubismSdkForWeb\Samples\Resources",
+            directory=config.LIVE2D_RESOURCES_PATH,
         ),
         name="resources",
     )

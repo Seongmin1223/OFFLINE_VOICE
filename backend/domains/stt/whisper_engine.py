@@ -5,16 +5,13 @@ from config import config
 from domains.stt.models import STTResult
 
 
-WHISPER_SERVER_URL = "http://127.0.0.1:8081"
-
-# 노이즈성 패턴 (이것만 인식되면 무시)
 _NOISE_PATTERN = re.compile(r'^[\s\-\.\,\!\/\(\)\[\]]+$')
 
 
 class WhisperEngine:
 
     def __init__(self):
-        self.server_url = WHISPER_SERVER_URL
+        self.server_url = config.WHISPER_SERVER_URL
         self.language   = config.WHISPER_LANGUAGE
 
     def _check_server(self) -> None:
@@ -24,8 +21,8 @@ class WhisperEngine:
             raise RuntimeError(
                 "whisper-server가 실행되지 않았습니다!\n"
                 "새 터미널에서 먼저 실행:\n"
-                r"C:\dev\whisper.cpp\build\bin\Release\whisper-server.exe "
-                r"-m C:\dev\whisper.cpp\models\ggml-tiny.bin -l ko --port 8081"
+                f"{config.WHISPER_BIN} "
+                f"-m {config.WHISPER_MODEL} -l {config.WHISPER_LANGUAGE} --port {config.WHISPER_SERVER_URL.split(':')[-1]}"
             )
 
     def _is_noise(self, text: str) -> bool:
