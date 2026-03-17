@@ -4,13 +4,10 @@ from config import config
 from domains.llm.models import LLMRequest, LLMResponse
 
 
-LLAMA_SERVER_URL = "http://127.0.0.1:8080"
-
-
 class LlamaEngine:
 
     def __init__(self):
-        self.server_url    = LLAMA_SERVER_URL
+        self.server_url    = config.LLM_SERVER_URL
         self.max_tokens    = config.LLM_MAX_TOKENS
         self.temperature   = config.LLM_TEMPERATURE
         self.system_prompt = config.LLM_SYSTEM_PROMPT
@@ -23,9 +20,9 @@ class LlamaEngine:
         except Exception:
             raise RuntimeError(
                 "llama-server가 실행되지 않았습니다!\n"
-                r"C:\dev\llama.cpp\build\bin\Release\llama-server.exe "
-                r"-m C:\dev\llama.cpp\models\EXAONE-3.5-2.4B-Instruct-Q4_K_M.gguf "
-                "-c 2048 -t 4 --port 8080"
+                f"{config.LLAMA_BIN} "
+                f"-m {config.LLAMA_MODEL} "
+                f"-c {config.LLM_CONTEXT_SIZE} -t {config.LLM_THREADS} --port {config.LLM_SERVER_URL.split(':')[-1]}"
             )
 
     def generate_sync(self, request: LLMRequest) -> LLMResponse:
