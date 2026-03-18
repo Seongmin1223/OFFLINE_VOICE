@@ -1,0 +1,91 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "kss_dataset",
+  "dataset_size": 4319101161,
+  "description": "Korean Single Speaker Speech Dataset",
+  "download_checksums": {
+    "hf://datasets/Bingsu/KSS_Dataset@48fdfd7ab1dbc1a62e4e8a8b9f4c360259d51d3c/data/train-00000-of-00007.parquet": {
+      "num_bytes": 556061209,
+      "checksum": null
+    },
+    "hf://datasets/Bingsu/KSS_Dataset@48fdfd7ab1dbc1a62e4e8a8b9f4c360259d51d3c/data/train-00001-of-00007.parquet": {
+      "num_bytes": 600367995,
+      "checksum": null
+    },
+    "hf://datasets/Bingsu/KSS_Dataset@48fdfd7ab1dbc1a62e4e8a8b9f4c360259d51d3c/data/train-00002-of-00007.parquet": {
+      "num_bytes": 585576771,
+      "checksum": null
+    },
+    "hf://datasets/Bingsu/KSS_Dataset@48fdfd7ab1dbc1a62e4e8a8b9f4c360259d51d3c/data/train-00003-of-00007.parquet": {
+      "num_bytes": 497397025,
+      "checksum": null
+    },
+    "hf://datasets/Bingsu/KSS_Dataset@48fdfd7ab1dbc1a62e4e8a8b9f4c360259d51d3c/data/train-00004-of-00007.parquet": {
+      "num_bytes": 494763248,
+      "checksum": null
+    },
+    "hf://datasets/Bingsu/KSS_Dataset@48fdfd7ab1dbc1a62e4e8a8b9f4c360259d51d3c/data/train-00005-of-00007.parquet": {
+      "num_bytes": 530129801,
+      "checksum": null
+    },
+    "hf://datasets/Bingsu/KSS_Dataset@48fdfd7ab1dbc1a62e4e8a8b9f4c360259d51d3c/data/train-00006-of-00007.parquet": {
+      "num_bytes": 544410674,
+      "checksum": null
+    }
+  },
+  "download_size": 3808706723,
+  "features": {
+    "audio": {
+      "sampling_rate": 44100,
+      "_type": "Audio"
+    },
+    "original_script": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "expanded_script": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "decomposed_script": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "duration": {
+      "dtype": "float32",
+      "_type": "Value"
+    },
+    "english_translation": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "https://www.kaggle.com/datasets/bryanpark/korean-single-speaker-speech-dataset",
+  "license": "cc-by-nc-sa-4.0",
+  "size_in_bytes": 8127807884,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 4319101161,
+      "num_examples": 12854,
+      "shard_lengths": [
+        1837,
+        1837,
+        1836,
+        1836,
+        1836,
+        1836,
+        1836
+      ],
+      "dataset_name": "kss_dataset"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
