@@ -1,0 +1,35 @@
+name: Build Check
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+      - "examples/**"
+  pull_request:
+    branches: ["**"]
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+
+      - name: Syntax check - backend
+        run: python -m compileall -q backend/
+
+      - name: Syntax check - 모델학습
+        run: python -m compileall -q 모델학습/
