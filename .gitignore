@@ -2,6 +2,7 @@
 vits_env/
 venv/
 env/
+stt_env/
 
 # 오디오 출력 파일
 *.wav
@@ -12,6 +13,7 @@ env/
 *.pt
 *.bin
 *.gguf
+models/
 
 # Python 캐시
 __pycache__/
