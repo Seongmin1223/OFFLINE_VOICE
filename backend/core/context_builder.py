@@ -42,8 +42,10 @@ async def build_messages(
     """
     db = await get_db()
 
+    # facts: 한 번에 너무 많이 주입하면 LLM이 특정 사실에 과몰입(anchoring).
+    # 5세 챗봇 응답에 참고할 사용자 정보는 6개로 제한.
     summaries = await repo.get_recent_summaries(db, limit=10)
-    facts     = await memory.get_facts(min_importance=1, limit=20)
+    facts     = await memory.get_facts(min_importance=1, limit=6)
     turns     = await memory.get_recent_turns(n=20)
 
     # 토큰 수 일괄 계산 — len 기반 in-memory 근사라 비용 무시 가능
