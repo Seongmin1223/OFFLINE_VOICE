@@ -27,6 +27,9 @@ class Config:
     LLAMA_BIN = get_env_strict("LLAMA_BIN_PATH", is_path=True)
     LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "50"))
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
+    LLM_TOP_P = float(os.getenv("LLM_TOP_P", "0.9"))
+    LLM_TOP_K = int(os.getenv("LLM_TOP_K", "40"))
+    LLM_REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", "1.1"))
     LLM_THREADS = int(os.getenv("LLM_THREADS", "4"))
     LLM_CONTEXT_SIZE = int(os.getenv("LLM_CONTEXT_SIZE", "512"))
     LLM_SYSTEM_PROMPT = "너는 5살 아이들의 다정한 친구, 귀여운 곰돌이 인형 '포비'야. 항상 친절하고 따뜻하게 아이들의 눈높이에 맞춰 반말로 대답해야 해."
