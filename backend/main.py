@@ -16,8 +16,6 @@ from config import config
 def create_app(pipeline: VoicePipeline) -> FastAPI:
     from api.routes import router
     from api.websocket import websocket_endpoint
-    from api.avatar_ws import avatar_websocket_endpoint
-    from fastapi.staticfiles import StaticFiles
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -25,7 +23,7 @@ def create_app(pipeline: VoicePipeline) -> FastAPI:
         await connect()
         # 서버 유지
         yield
-        # 서버 닫히기 전 훅 
+        # 서버 닫히기 전 훅
         await run_session_batch(pipeline.llm, pipeline.memory)
         await disconnect()
 
@@ -37,23 +35,6 @@ def create_app(pipeline: VoicePipeline) -> FastAPI:
 
     app.include_router(router, prefix="/api/v1")
     app.add_api_websocket_route("/ws", websocket_endpoint)
-    app.add_api_websocket_route("/ws/avatar", avatar_websocket_endpoint)
-
-    app.mount(
-        "/live2d",
-        StaticFiles(
-            directory=config.LIVE2D_DIST_PATH,
-            html=True,
-        ),
-        name="live2d",
-    )
-    app.mount(
-        "/Resources",
-        StaticFiles(
-            directory=config.LIVE2D_RESOURCES_PATH,
-        ),
-        name="resources",
-    )
 
     @app.get("/")
     async def root():

@@ -1,5 +1,4 @@
 from __future__ import annotations
-from api.avatar_ws import broadcast
 import asyncio
 import re
 from config import config
@@ -8,7 +7,6 @@ from domains.soul.soul_container import SoulContainer, SoulConfig
 from domains.soul.memory import MemoryManager
 from core.context_builder import build_messages
 from core.tokenizer import count_tokens
-from domains.soul.avatar_bridge import AvatarBridge
 
 
 MIN_SENTENCE_LEN = 10
@@ -17,14 +15,13 @@ MIN_SENTENCE_LEN = 10
 class VoicePipeline:
 
     def __init__(self, stt, llm, tts,
-                 event_bus=None, soul=None, memory=None, avatar_bridge=None):
+                 event_bus=None, soul=None, memory=None):
         self.stt       = stt
         self.llm       = llm
         self.tts       = tts
         self.event_bus = event_bus or EventBus()
-        self.soul      = soul   or SoulContainer(SoulConfig.from_preset("airi"))
+        self.soul      = soul   or SoulContainer(SoulConfig.from_preset("pobi"))
         self.memory    = memory or MemoryManager()
-        self.avatar    = avatar_bridge
 
     async def run(self, audio_path: str) -> dict:
 
@@ -38,7 +35,7 @@ class VoicePipeline:
 
         if not user_text.strip():
             print("[Pipeline] ⚠ 인식된 텍스트가 없습니다.")
-            return {"user_text": "", "ai_text": "", "emotion": "neutral"}
+            return {"user_text": "", "ai_text": ""}
 
         await self.event_bus.publish("stt_complete", {"text": user_text})
 
@@ -55,38 +52,27 @@ class VoicePipeline:
         full_response = []
         pending = ""
         loop = asyncio.get_event_loop()
-        last_emotion = None
 
         self.tts.start_workers()
+
         def _clean_text(text: str) -> str:
             """이모지, 특수문자 제거."""
-            # 이모지 제거
             text = re.sub(r'[^\w\s\.,!?~\-가-힣a-zA-Z]', '', text)
-            # 연속 공백 정리
             text = re.sub(r'\s+', ' ', text).strip()
             return text
 
         def on_sentence(sentence: str):
-            nonlocal pending, last_emotion
-            clean, emotion = self.soul.parse_response(sentence)
+            nonlocal pending
+            clean = self.soul.parse_response(sentence)
             clean = _clean_text(clean)
             if not clean.strip():
                 return
-            last_emotion = emotion
             pending += clean
             if len(pending) >= MIN_SENTENCE_LEN:
                 print(f"[Pipeline] → TTS: {pending}")
                 full_response.append(pending)
                 self.tts.enqueue(pending)
-                # 감정 신호 전송
-                asyncio.run_coroutine_threadsafe(
-                    broadcast({"type": "emotion", "emotion": emotion.value}),
-                    loop
-                )
                 pending = ""
-
-        # 말하기 시작 신호
-        await broadcast({"type": "speaking", "speaking": True})
 
         await loop.run_in_executor(
             None, self.llm.stream_sync, messages, on_sentence
@@ -101,15 +87,7 @@ class VoicePipeline:
         # 재생 완료 대기
         self.tts.wait_done()
 
-        # 말하기 종료 신호
-        await broadcast({"type": "speaking", "speaking": False})
-
         ai_text = " ".join(full_response)
-        _, emotion = self.soul.parse_response(ai_text) if ai_text else (None, None)
-
-        from domains.soul.emotion import Emotion
-        if emotion is None:
-            emotion = last_emotion or Emotion.NEUTRAL
 
         await self.memory.add_turn("user",      user_text, token_count=count_tokens(user_text))
         await self.memory.add_turn("assistant", ai_text,   token_count=count_tokens(ai_text))
@@ -117,7 +95,6 @@ class VoicePipeline:
         result = {
             "user_text": user_text,
             "ai_text":   ai_text,
-            "emotion":   emotion.value,
             "turn":      self.memory.turn_count,
         }
         await self.event_bus.publish("turn_complete", result)

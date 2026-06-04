@@ -50,10 +50,6 @@ class Config:
     AUDIO_MAX_SEC = float(os.getenv("AUDIO_MAX_SEC", "30.0"))
     AUDIO_RECORD_FILE = get_env_strict("AUDIO_RECORD_FILE", is_path=True)
 
-    # LIVE2D
-    LIVE2D_DIST_PATH = get_env_strict("LIVE2D_DIST_PATH", is_path=True)
-    LIVE2D_RESOURCES_PATH = get_env_strict("LIVE2D_RESOURCES_PATH", is_path=True)
-
     # ETC
     API_HOST = os.getenv("API_HOST", "0.0.0.0")
     API_PORT = int(os.getenv("API_PORT", "8000"))

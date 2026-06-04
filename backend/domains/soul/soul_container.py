@@ -1,10 +1,7 @@
 from __future__ import annotations
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
-from domains.soul.emotion import Emotion, EmotionState
 
-# 1. 성격 프리셋 (포비 전용으로 완전 교체) 
+
 PERSONALITY_PRESETS: dict[str, dict] = {
     "pobi": {
         "name": "포비",
@@ -16,27 +13,26 @@ PERSONALITY_PRESETS: dict[str, dict] = {
     }
 }
 
+
 @dataclass
 class SoulConfig:
-    name:         str       = "포비"
+    name:         str        = "포비"
     age:          str | None = "5"
-    tone:         str       = "다정하고 따뜻한 말투"
-    traits:       list[str] = field(default_factory=lambda: ["친절함", "따뜻함"])
-    speech_style: str       = "반말로 대답해."
-    forbidden:    list[str] = field(default_factory=list)
+    tone:         str        = "다정하고 따뜻한 말투"
+    traits:       list[str]  = field(default_factory=lambda: ["친절함", "따뜻함"])
+    speech_style: str        = "반말로 대답해."
+    forbidden:    list[str]  = field(default_factory=list)
 
     @classmethod
     def from_preset(cls, preset_name: str) -> "SoulConfig":
         data = PERSONALITY_PRESETS.get(preset_name, PERSONALITY_PRESETS["pobi"])
         return cls(**{k: v for k, v in data.items() if v is not None})
 
+
 class SoulContainer:
     def __init__(self, config: SoulConfig | None = None):
-        # 파이프라인에서 프리셋을 명시하지 않아도 무조건 pobi가 불리도록 수정
-        self.config  = config or SoulConfig.from_preset("pobi")
-        self.emotion = EmotionState()
+        self.config = config or SoulConfig.from_preset("pobi")
 
-    # ── 2. 시스템 프롬프트 생성 (감정 강제 로직 삭제) ──
     def build_system_prompt(self) -> str:
         cfg = self.config
         traits_str = ", ".join(cfg.traits)
@@ -52,21 +48,8 @@ class SoulContainer:
 스타일: {cfg.speech_style}{forbidden_str}
 """
 
-    # LLM 응답 파싱 (단순 텍스트 통과로 변경)
-    def parse_response(self, raw: str) -> tuple[str, Emotion]:
-        clean_text = raw.strip()
-        emotion = Emotion.NEUTRAL
-        
-        self.emotion.update(emotion)
-        return clean_text, emotion
-
-    @property
-    def current_emotion(self) -> Emotion:
-        return self.emotion.current
+    def parse_response(self, raw: str) -> str:
+        return raw.strip()
 
     def soul_info(self) -> dict:
-        return {
-            "name":    self.config.name,
-            "emotion": self.emotion.current.value,
-            "history": [e.value for e in self.emotion.history[-5:]],
-        }
+        return {"name": self.config.name}
