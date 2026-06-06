@@ -6,9 +6,12 @@ from domains.llm.models import LLMResponse
 
 class LlamaEngine:
     def __init__(self):
-        self.server_url  = config.LLM_SERVER_URL
-        self.max_tokens  = config.LLM_MAX_TOKENS
-        self.temperature = config.LLM_TEMPERATURE
+        self.server_url     = config.LLM_SERVER_URL
+        self.max_tokens     = config.LLM_MAX_TOKENS
+        self.temperature    = config.LLM_TEMPERATURE
+        self.top_p          = config.LLM_TOP_P
+        self.top_k          = config.LLM_TOP_K
+        self.repeat_penalty = config.LLM_REPEAT_PENALTY
 
     def _check_server(self) -> None:
         try:
@@ -42,12 +45,15 @@ class LlamaEngine:
         raw_prompt = self._format_prompt(messages)
         
         payload = {
-            "prompt":      raw_prompt,  # messages -> prompt로 변경
-            "max_tokens":  self.max_tokens,
-            "temperature": self.temperature,
-            "stream":      False,
+            "prompt":         raw_prompt,
+            "max_tokens":     self.max_tokens,
+            "temperature":    self.temperature,
+            "top_p":          self.top_p,
+            "top_k":          self.top_k,
+            "repeat_penalty": self.repeat_penalty,
+            "stream":         False,
             # 모델이 혼자 질문하고 대답하는 환각(Hallucination) 방지용 제동 장치
-            "stop":        ["[|user|]", "[|system|]"] 
+            "stop":           ["[|user|]", "[|system|]"],
         }
         
         print("[LLM] 응답 생성 중...")
@@ -69,15 +75,15 @@ class LlamaEngine:
         # 1. messages 배열 대신 문자열 프롬프트 직접 조립
         raw_prompt = self._format_prompt(messages)
         
-        # === 디버깅용: 터미널에서 프롬프트가 정상적으로 만들어졌는지 확인 ===
-        print("\n[LLM 전송 프롬프트 확인]\n", raw_prompt, "\n======================")
-        
         payload = {
-            "prompt":      raw_prompt,
-            "max_tokens":  self.max_tokens,
-            "temperature": self.temperature,
-            "stream":      True,
-            "stop":        ["[|user|]", "[|system|]"] 
+            "prompt":         raw_prompt,
+            "max_tokens":     self.max_tokens,
+            "temperature":    self.temperature,
+            "top_p":          self.top_p,
+            "top_k":          self.top_k,
+            "repeat_penalty": self.repeat_penalty,
+            "stream":         True,
+            "stop":           ["[|user|]", "[|system|]"],
         }
 
         buffer = ""
