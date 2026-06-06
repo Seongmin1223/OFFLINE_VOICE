@@ -45,7 +45,8 @@ def create_app(pipeline: VoicePipeline) -> FastAPI:
 
 async def mic_loop(pipeline: VoicePipeline):
     from domains.audio_input.recorder import AudioRecorder
-    recorder = AudioRecorder()
+    pipeline.set_loop(asyncio.get_running_loop())
+    recorder = AudioRecorder(on_speech_start=pipeline.trigger_prefill)
     print("=" * 50)
     print("  마이크 루프 시작 (백그라운드)")
     print("=" * 50)
@@ -92,7 +93,8 @@ async def run_loop():
         tts       = PiperEngine()
         event_bus = EventBus()
         pipeline  = VoicePipeline(stt, llm, tts, event_bus=event_bus)
-        recorder  = AudioRecorder()
+        pipeline.set_loop(asyncio.get_running_loop())
+        recorder  = AudioRecorder(on_speech_start=pipeline.trigger_prefill)
         print("=" * 50)
         print("  오프라인 음성 어시스턴트 시작")
         print("  종료: Ctrl+C")
