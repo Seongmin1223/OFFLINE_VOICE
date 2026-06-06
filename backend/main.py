@@ -16,6 +16,7 @@ from config import config
 def create_app(pipeline: VoicePipeline) -> FastAPI:
     from api.routes import router
     from api.websocket import websocket_endpoint
+    from fastapi.responses import HTMLResponse
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -28,17 +29,48 @@ def create_app(pipeline: VoicePipeline) -> FastAPI:
         await disconnect()
 
     app = FastAPI(
-        title="Offline Voice Assistant",
+        title="오프라인 음성 서비스 명세서",
+        description="경북대학교 종합설계프로젝트2",
         version="1.0.0",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url="/v2/api-docs.json",
         lifespan=lifespan,
     )
 
     app.include_router(router, prefix="/api/v1")
     app.add_api_websocket_route("/ws", websocket_endpoint)
 
-    @app.get("/")
-    async def root():
-        return {"message": "Offline Voice Assistant 실행 중"}
+    # Standalone preset(헤더 + 로고)을 살리고 URL 입력바만 CSS로 숨김
+    _SWAGGER_HTML = """<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>오프라인 음성 서비스 명세서</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+  <style>
+    .swagger-ui .topbar .download-url-wrapper { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.ui = SwaggerUIBundle({
+      url: '/v2/api-docs.json',
+      dom_id: '#swagger-ui',
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+      layout: 'StandaloneLayout',
+      deepLinking: true,
+    });
+  </script>
+</body>
+</html>"""
+
+    @app.get("/v2/api-docs", include_in_schema=False)
+    async def custom_swagger():
+        return HTMLResponse(_SWAGGER_HTML)
 
     return app
 
