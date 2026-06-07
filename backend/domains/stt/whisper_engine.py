@@ -16,12 +16,13 @@ class WhisperEngine:
 
     def _check_server(self) -> None:
         try:
-            requests.get(f"{self.server_url}/", timeout=3)
-        except Exception:
+            requests.get(f"{self.server_url}/", timeout=10)
+        except Exception as e:
             raise RuntimeError(
-                "whisper-server가 실행되지 않았습니다!\n"
-                "새 터미널에서 먼저 실행:\n"
-                f"{config.WHISPER_BIN} "
+                f"whisper-server 연결 실패 [{type(e).__name__}] {e}\n"
+                f"  target: {self.server_url}/\n"
+                "  새 터미널에서 먼저 실행:\n"
+                f"  {config.WHISPER_BIN} "
                 f"-m {config.WHISPER_MODEL} -l {config.WHISPER_LANGUAGE} --port {config.WHISPER_SERVER_URL.split(':')[-1]}"
             )
 

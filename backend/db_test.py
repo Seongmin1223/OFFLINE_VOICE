@@ -141,7 +141,7 @@ async def run_phase2_test():
     from domains.soul.soul_container import SoulContainer, SoulConfig
 
     print("\n3. build_messages (token_budget=400)")
-    soul = SoulContainer(SoulConfig.from_preset("airi"))
+    soul = SoulContainer(SoulConfig.from_preset("pobi"))
 
     messages = await build_messages(
         system_prompt=soul.build_system_prompt(),

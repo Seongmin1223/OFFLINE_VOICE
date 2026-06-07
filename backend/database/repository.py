@@ -65,16 +65,32 @@ async def insert_fact(
 
 
 async def get_facts(db: aiosqlite.Connection, min_importance: int = 1, limit: int = 20) -> list[dict]:
-    """importance 높고 최근 접근한 순으로 반환."""
+    """카테고리별 균형 분포 + 랜덤 타이브레이커로 anchoring 완화.
+
+    각 카테고리에서 importance DESC + RANDOM 으로 상위 PER_CATEGORY개를 뽑은 뒤,
+    합쳐서 다시 importance DESC + RANDOM 으로 최종 limit개 반환.
+    last_accessed는 정렬에 더 이상 사용하지 않음
+    (같은 fact만 계속 선택→touch→재선택되는 self-anchoring 루프 차단).
+    """
+    PER_CATEGORY = 3
     async with db.execute(
         """
+        WITH ranked AS (
+            SELECT id, category, content, importance, last_accessed,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY category
+                       ORDER BY importance DESC, RANDOM()
+                   ) AS rn
+            FROM facts
+            WHERE importance >= ?
+        )
         SELECT id, category, content, importance, last_accessed
-        FROM facts
-        WHERE importance >= ?
-        ORDER BY importance DESC, last_accessed DESC
+        FROM ranked
+        WHERE rn <= ?
+        ORDER BY importance DESC, RANDOM()
         LIMIT ?
         """,
-        (min_importance, limit),
+        (min_importance, PER_CATEGORY, limit),
     ) as cursor:
         rows = await cursor.fetchall()
     return [dict(r) for r in rows]

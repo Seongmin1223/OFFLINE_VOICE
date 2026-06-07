@@ -8,13 +8,14 @@ from config import config
 from silero_vad import load_silero_vad, VADIterator
 
 class AudioRecorder:
-    def __init__(self):
+    def __init__(self, on_speech_start=None):
         self.sample_rate = config.AUDIO_SAMPLE_RATE
         self.channels = config.AUDIO_CHANNELS
         self.chunk_size = 512
         self.max_sec = 60
         self.output_path = config.AUDIO_RECORD_FILE
-        
+        self.on_speech_start = on_speech_start
+
         print("Silero VAD 모델 초기 로딩")
         self.vad_model = load_silero_vad(onnx=True)
         
@@ -59,7 +60,12 @@ class AudioRecorder:
                 if 'start' in speech_dict:
                     has_started = True
                     print("발화 감지됨")
-                    
+                    if self.on_speech_start:
+                        try:
+                            self.on_speech_start()
+                        except Exception as e:
+                            print(f"[VAD start callback 오류] {e}")
+
                 if 'end' in speech_dict and has_started:
                     print("발화 종료")
                     frames.append(chunk)
