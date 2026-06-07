@@ -1,4 +1,5 @@
 import os
+import asyncio
 import tempfile
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
@@ -10,6 +11,7 @@ from domains.tts.piper_engine import PiperEngine
 from domains.conversation.manager import ConversationManager
 from core.pipeline import VoicePipeline
 from core.event_bus import EventBus
+from api.avatar_ws import broadcast
 
 router = APIRouter()
 
@@ -23,6 +25,10 @@ _pipeline     = VoicePipeline(_stt, _llm, _tts, _conversation, _event_bus)
 
 class TextRequest(BaseModel):
     text: str
+
+class TTSTestRequest(BaseModel):
+    text: str
+    emotion: str = "neutral"
 
 class PipelineResponse(BaseModel):
     user_text: str
@@ -86,6 +92,21 @@ async def run_pipeline_text(body: TextRequest):
         ai_text=ai_text,
         turn=_conversation.turn_count(),
     )
+
+
+@router.post("/tts/test")
+async def tts_test(body: TTSTestRequest):
+    """LLM/STT 건너뛰고 TTS만 동작시켜 페이지의 visualizer를 테스트."""
+    loop = asyncio.get_event_loop()
+    if hasattr(_tts, "set_loop"):
+        _tts.set_loop(loop)
+    _tts.start_workers()
+    await broadcast({"type": "emotion", "emotion": body.emotion, "text": body.text})
+    await broadcast({"type": "speaking", "speaking": True})
+    _tts.enqueue(body.text, body.emotion)
+    await loop.run_in_executor(None, _tts.wait_done)
+    await broadcast({"type": "speaking", "speaking": False})
+    return {"status": "ok", "text": body.text, "emotion": body.emotion}
 
 
 @router.post("/conversation/reset")

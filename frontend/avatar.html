@@ -2,68 +2,367 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>Airi - 오프라인 음성 어시스턴트</title>
+<title>포비 - 친구야 무슨 얘기 할까?</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    height: 100vh; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    font-family: 'Segoe UI', sans-serif; color: #eee; overflow: hidden;
-  }
-  #avatar-container {
-    width: 400px; height: 500px; position: relative;
-  }
-  canvas#live2d { width: 100%; height: 100%; }
-  #emotion-badge {
-    position: absolute; top: 10px; right: 10px;
-    background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);
-    border-radius: 20px; padding: 6px 14px; font-size: 13px;
-    transition: all 0.3s ease;
-  }
-  #speech-bubble {
-    max-width: 480px; background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 16px; padding: 16px 20px; margin-top: 16px;
-    font-size: 15px; line-height: 1.6; min-height: 56px;
-    transition: opacity 0.3s ease;
-  }
-  #speech-bubble.speaking { border-color: #a78bfa; box-shadow: 0 0 12px #a78bfa55; }
-  #status-bar {
-    margin-top: 12px; font-size: 12px; opacity: 0.5;
-    display: flex; gap: 16px;
+    background:
+      radial-gradient(circle at 15% 20%, #ffe1ec 0%, transparent 40%),
+      radial-gradient(circle at 85% 30%, #d8efff 0%, transparent 45%),
+      radial-gradient(circle at 50% 90%, #fff3d6 0%, transparent 50%),
+      linear-gradient(180deg, #fff7f0 0%, #ffe9f0 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: '맑은 고딕', 'Apple SD Gothic Neo', 'Quicksand', 'Comic Sans MS', sans-serif;
+    color: #5b4a3f;
+    overflow: hidden;
+    gap: 22px;
+    position: relative;
   }
 
-  .emotion-happy     { color: #fbbf24; }
-  .emotion-sad       { color: #60a5fa; }
-  .emotion-angry     { color: #f87171; }
-  .emotion-surprised { color: #34d399; }
-  .emotion-shy       { color: #f9a8d4; }
-  .emotion-thinking  { color: #c084fc; }
-  .emotion-neutral   { color: #9ca3af; }
+  /* 떠다니는 구름/별 데코 */
+  .deco {
+    position: absolute;
+    font-size: 22px;
+    opacity: 0.55;
+    animation: float 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .deco.s2 { animation-duration: 8s; animation-delay: -2s; }
+  .deco.s3 { animation-duration: 7s; animation-delay: -4s; }
+  .deco.s4 { animation-duration: 9s; animation-delay: -1s; }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-12px) rotate(4deg); }
+  }
+
+  #title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #title-bear {
+    font-size: 38px;
+    animation: wiggle 3.6s ease-in-out infinite;
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-6deg); }
+    50%      { transform: rotate(6deg); }
+  }
+  #title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 6px;
+    color: #b56a4a;
+    text-shadow: 0 2px 0 #fff, 0 4px 12px rgba(181,106,74,0.2);
+  }
+  #subtitle {
+    font-size: 13px;
+    color: #b56a4a;
+    opacity: 0.7;
+    margin-top: -8px;
+  }
+
+  #visualizer-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  #emotion-badge {
+    background: rgba(255,255,255,0.85);
+    border: 2px solid #ffd9b0;
+    border-radius: 24px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #b56a4a;
+    box-shadow: 0 4px 12px rgba(255,180,140,0.25);
+    transition: all 0.4s ease;
+  }
+
+  #visualizer-container {
+    width: 560px;
+    height: 200px;
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(8px);
+    border: 3px solid #ffe1c8;
+    border-radius: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 32px 28px;
+    box-shadow:
+      0 10px 30px rgba(255,170,140,0.2),
+      inset 0 0 30px rgba(255,255,255,0.4);
+    transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.3s ease;
+  }
+  #visualizer-container.speaking {
+    border-color: #ffb3c8;
+    box-shadow:
+      0 14px 38px rgba(255,140,170,0.3),
+      inset 0 0 40px rgba(255,200,220,0.3);
+    transform: translateY(-2px);
+  }
+
+  .bar {
+    flex: 1;
+    max-width: 9px;
+    min-width: 5px;
+    border-radius: 50px;
+    height: 6px;
+    opacity: 0.55;
+    transition: opacity 0.3s ease;
+  }
+  #visualizer-container.speaking .bar { opacity: 1; }
+
+  /* 무지개 막대 — 인덱스별 nth-child로 색 분포 */
+  .bar:nth-child(6n+1) { background: linear-gradient(to top, #ff9eb5, #ffc1d4); }
+  .bar:nth-child(6n+2) { background: linear-gradient(to top, #ffb380, #ffd1a8); }
+  .bar:nth-child(6n+3) { background: linear-gradient(to top, #ffe17a, #fff0b8); }
+  .bar:nth-child(6n+4) { background: linear-gradient(to top, #9ed7a7, #c5ebcd); }
+  .bar:nth-child(6n+5) { background: linear-gradient(to top, #87c7f5, #b9dffa); }
+  .bar:nth-child(6n+6) { background: linear-gradient(to top, #c7a3ec, #ddc4f5); }
+
+  #speech-bubble {
+    position: relative;
+    width: 560px;
+    background: #fff;
+    border: 3px solid #ffe1c8;
+    border-radius: 28px;
+    padding: 20px 24px;
+    font-size: 16px;
+    line-height: 1.7;
+    min-height: 64px;
+    color: #5b4a3f;
+    box-shadow: 0 8px 20px rgba(255,170,140,0.18);
+    transition: border-color 0.4s ease;
+  }
+  /* 말풍선 꼬리(위로) */
+  #speech-bubble::before {
+    content: '';
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-bottom: 14px solid #ffe1c8;
+  }
+  #speech-bubble::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 12px solid #fff;
+  }
+  #speech-bubble.speaking {
+    border-color: #ffb3c8;
+  }
+  #speech-bubble.speaking::before { border-bottom-color: #ffb3c8; }
+
+  #status-bar {
+    font-size: 12px;
+    color: #b56a4a;
+    opacity: 0.6;
+    display: flex;
+    gap: 18px;
+    letter-spacing: 0.3px;
+  }
+
+  /* 감정별 색상 (배지 강조) */
+  .emotion-happy     { color: #e89a2c; border-color: #ffd07a !important; }
+  .emotion-sad       { color: #3b7fbf; border-color: #b6daf7 !important; }
+  .emotion-angry     { color: #d96a55; border-color: #f7b6a8 !important; }
+  .emotion-surprised { color: #2fa67a; border-color: #b6e7d2 !important; }
+  .emotion-shy       { color: #cf6593; border-color: #f7c1d6 !important; }
+  .emotion-thinking  { color: #8a5fcc; border-color: #d6c1f5 !important; }
+  .emotion-neutral   { color: #b56a4a; }
 </style>
 </head>
 <body>
 
-<div id="avatar-container">
-  <canvas id="live2d" width="400" height="500"></canvas>
-  <div id="emotion-badge">😊 neutral</div>
+<span class="deco"      style="top: 8%;  left: 10%;">☁️</span>
+<span class="deco s2"   style="top: 14%; right: 12%;">⭐</span>
+<span class="deco s3"   style="bottom: 18%; left: 8%;">🌷</span>
+<span class="deco s4"   style="bottom: 12%; right: 10%;">☁️</span>
+<span class="deco s2"   style="top: 50%; left: 4%;">✨</span>
+<span class="deco s3"   style="top: 60%; right: 5%;">💗</span>
+
+<div id="title-wrap">
+  <span id="title-bear">🧸</span>
+  <span id="title">POBY</span>
+</div>
+<div id="subtitle">친구야, 오늘은 무슨 이야기 할까?</div>
+
+<div id="visualizer-wrapper">
+  <div id="emotion-badge">😊 기분 좋아</div>
+  <div id="visualizer-container"></div>
 </div>
 
-<div id="speech-bubble">안녕하세요! 저는 아이리예요~</div>
+<div id="speech-bubble">안녕! 나는 포비야. 같이 재미있는 이야기 하자~ 🐻</div>
 
 <div id="status-bar">
-  <span id="status-ws">🔴 연결 중...</span>
-  <span id="status-turn">0턴</span>
-  <span id="status-memory">기억: 0개</span>
+  <span id="status-ws">🔌 연결하는 중...</span>
+  <span id="status-turn">이야기 0번</span>
+</div>
+
+<div id="tts-test-bar" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+     display:flex; gap:8px; width:560px; max-width:90vw; z-index:100;">
+  <input id="tts-input" type="text" placeholder="포비에게 읽어주고 싶은 말을 적어보세요"
+    style="flex:1; padding:12px 16px; border:2px solid #ffe1c8; border-radius:24px;
+           background:rgba(255,255,255,0.95); font-size:14px; color:#5b4a3f; outline:none;
+           box-shadow:0 6px 18px rgba(255,170,140,0.2);">
+  <button id="tts-send"
+    style="padding:12px 18px; border:none; border-radius:24px; background:#ffb3c8; color:#fff;
+           font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(255,140,170,0.35);
+           white-space:nowrap;">
+    🐻 말 시키기
+  </button>
 </div>
 
 <script>
-const EMOTION_EMOJI = {
-  neutral: "😊", happy: "😄", sad: "😢",
-  angry: "😠", surprised: "😲", shy: "😳", thinking: "🤔"
+  async function sendTtsTest() {
+    const input = document.getElementById("tts-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    try {
+      await fetch("/api/v1/tts/test", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text: text, emotion: "neutral"})
+      });
+    } catch (e) {
+      console.error("[TTS test] 전송 실패", e);
+    }
+  }
+  document.getElementById("tts-send").addEventListener("click", sendTtsTest);
+  document.getElementById("tts-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendTtsTest();
+  });
+</script>
+
+<script>
+const BAR_COUNT = 56;
+const MAX_HEIGHT = 120;
+const MIN_HEIGHT = 6;
+const EMOTION_LABEL = {
+  neutral:   { emoji: "😊", text: "기분 좋아" },
+  happy:     { emoji: "😄", text: "신나요!"  },
+  sad:       { emoji: "😢", text: "슬퍼요"   },
+  angry:     { emoji: "😠", text: "삐졌어요" },
+  surprised: { emoji: "😲", text: "깜짝!"    },
+  shy:       { emoji: "😳", text: "부끄러워" },
+  thinking:  { emoji: "🤔", text: "생각 중"  }
 };
 
+const container = document.getElementById("visualizer-container");
+const bars = [];
+for (let i = 0; i < BAR_COUNT; i++) {
+  const bar = document.createElement("div");
+  bar.className = "bar";
+  container.appendChild(bar);
+  bars.push(bar);
+}
+
+let isSpeaking = false;
+let targets = new Array(BAR_COUNT).fill(MIN_HEIGHT);
+let currents = new Array(BAR_COUNT).fill(MIN_HEIGHT);
+
+// 서버에서 받은 실제 오디오 프레임 큐
+let frameQueue = [];
+let activeStream = null;  // { frames, fps, startedAt }
+
+function pickRealFrame(ts) {
+  while (true) {
+    if (!activeStream) {
+      if (frameQueue.length === 0) return false;
+      activeStream = frameQueue.shift();
+      activeStream.startedAt = ts;
+    }
+    const elapsedSec = (ts - activeStream.startedAt) / 1000;
+    const idx = Math.floor(elapsedSec * activeStream.fps);
+    if (idx >= activeStream.frames.length) {
+      activeStream = null;
+      continue;
+    }
+    const frame = activeStream.frames[idx];
+    // 프레임 자체의 max로 또 한 번 정규화 → 작은 청크도 확실히 솟게
+    let frameMax = 0;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const v = frame[i] ?? 0;
+      if (v > frameMax) frameMax = v;
+    }
+    const scale = frameMax > 0.05 ? 1.0 / frameMax : 1.0;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const v = Math.min((frame[i] ?? 0) * scale, 1.0);
+      targets[i] = MIN_HEIGHT + v * (MAX_HEIGHT - MIN_HEIGHT);
+    }
+    return true;
+  }
+}
+
+let lastIdleUpdate = 0;
+function genIdleTargets(ts) {
+  // 잔잔한 호흡 패턴 (살짝 더 부드럽고 작게)
+  const phase = ts * 0.0014;
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const wave = Math.sin(phase + i * 0.23) * 0.5 + 0.5;
+    targets[i] = MIN_HEIGHT + wave * 8;
+  }
+}
+
+function animate(ts) {
+  if (!ts) ts = performance.now();
+
+  const drivenByAudio = pickRealFrame(ts);
+  if (!drivenByAudio) {
+    if (ts - lastIdleUpdate > 50) {
+      lastIdleUpdate = ts;
+      genIdleTargets(ts);
+    }
+  }
+
+  const lerp = drivenByAudio ? 0.55 : 0.08;
+  for (let i = 0; i < BAR_COUNT; i++) {
+    currents[i] += (targets[i] - currents[i]) * lerp;
+    bars[i].style.height = currents[i].toFixed(1) + "px";
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+function setSpeaking(state) {
+  isSpeaking = state;
+  container.classList.toggle("speaking", state);
+  if (!state) {
+    frameQueue.length = 0;
+    activeStream = null;
+  }
+}
+
+function pushAudioFrames(frames, fps) {
+  frameQueue.push({ frames, fps: fps || 30, startedAt: 0 });
+}
+
+// ── WebSocket ─────────────────────────────────────────────
 const WS_URL = "ws://localhost:8000/ws/avatar";
 let ws, reconnectTimer;
 
@@ -71,86 +370,72 @@ function connect() {
   ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
-    document.getElementById("status-ws").textContent = "🟢 연결됨";
+    const el = document.getElementById("status-ws");
+    el.textContent = "💖 포비랑 연결됐어요";
     clearTimeout(reconnectTimer);
   };
 
   ws.onclose = () => {
-    document.getElementById("status-ws").textContent = "🔴 연결 끊김";
+    const el = document.getElementById("status-ws");
+    el.textContent = "💤 포비가 잠시 쉬는 중...";
+    setSpeaking(false);
     reconnectTimer = setTimeout(connect, 3000);
   };
 
   ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    handleMessage(msg);
+    try {
+      const msg = JSON.parse(event.data);
+      handleMessage(msg);
+    } catch (e) {
+      console.warn("[WS] 파싱 실패:", e);
+    }
   };
 }
+
 function handleMessage(msg) {
   switch (msg.type) {
-
     case "emotion":
       updateEmotion(msg.emotion);
-      if (msg.text) updateSpeechBubble(msg.text, false);
-      updateLive2D(msg.live2d);
+      if (msg.text) updateSpeechBubble(msg.text);
       break;
 
     case "speaking":
-      const bubble = document.getElementById("speech-bubble");
-      bubble.classList.toggle("speaking", msg.is_speaking);
-      if (msg.text) updateSpeechBubble(msg.text, msg.is_speaking);
+      const speaking = msg.speaking ?? msg.is_speaking ?? false;
+      setSpeaking(speaking);
+      if (msg.text) updateSpeechBubble(msg.text);
+      document.getElementById("speech-bubble").classList.toggle("speaking", speaking);
+      break;
+
+    case "audio_frames":
+      if (Array.isArray(msg.frames)) {
+        pushAudioFrames(msg.frames, msg.fps);
+      }
       break;
 
     case "state":
       updateEmotion(msg.current);
-      document.getElementById("status-turn").textContent =
-        `${msg.turn || 0}턴`;
+      document.getElementById("status-turn").textContent = `이야기 ${msg.turn || 0}번`;
+      break;
+
+    case "llm":
+      updateSpeechBubble(msg.text);
       break;
 
     case "stt":
-      console.log("사용자:", msg.text);
+      console.log("[친구]", msg.text);
       break;
   }
 }
 
 function updateEmotion(emotion) {
   const badge = document.getElementById("emotion-badge");
-  const emoji = EMOTION_EMOJI[emotion] || "😊";
-  badge.textContent = `${emoji} ${emotion}`;
+  const info = EMOTION_LABEL[emotion] || EMOTION_LABEL.neutral;
+  badge.textContent = `${info.emoji} ${info.text}`;
   badge.className = `emotion-${emotion}`;
 }
 
-function updateSpeechBubble(text, isSpeaking) {
-  const bubble = document.getElementById("speech-bubble");
-  bubble.textContent = text;
-  bubble.classList.toggle("speaking", isSpeaking);
-}
-
-// ── Live2D 파라미터 적용 (Cubism SDK 연동 시 활성화) ──────
-function updateLive2D(params) {
-  // 실제 Live2D SDK 사용 시:
-  // if (window.live2dModel) {
-  //   live2dModel.internalModel.coreModel.setParameterValueById(
-  //     "ParamEyeOpen", params.ParamEyeOpen
-  //   );
-  // }
-  console.log("[Live2D] params:", params);
-
-  // 임시: canvas에 감정 텍스트 표시
-  const canvas = document.getElementById("live2d");
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, 400, 500);
-  ctx.fillStyle = "rgba(255,255,255,0.05)";
-  ctx.fillRect(0, 0, 400, 500);
-  ctx.fillStyle = "#ffffff44";
-  ctx.font = "120px serif";
-  ctx.textAlign = "center";
-  ctx.fillText(
-    document.getElementById("emotion-badge").textContent.split(" ")[0],
-    200, 280
-  );
-  ctx.font = "14px sans-serif";
-  ctx.fillStyle = "#ffffff33";
-  ctx.fillText("Live2D 모델을 연결하세요", 200, 460);
+function updateSpeechBubble(text) {
+  document.getElementById("speech-bubble").textContent = text;
 }
 
 connect();

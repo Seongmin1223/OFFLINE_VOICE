@@ -2,6 +2,7 @@ from __future__ import annotations
 from api.avatar_ws import broadcast
 import asyncio
 import re
+import random
 from config import config
 from core.event_bus import EventBus
 from domains.soul.soul_container import SoulContainer, SoulConfig
@@ -11,10 +12,18 @@ from core.tokenizer import count_tokens
 from domains.soul.avatar_bridge import AvatarBridge
 
 
-MIN_SENTENCE_LEN = 10
+MIN_SENTENCE_LEN = 25
 
 
 class VoicePipeline:
+    _THINKING_FILLERS = [
+        "음...",
+        "어...",
+        "흠...",
+        "잠깐만요.",
+        "음, 잠깐만요.",
+        "어, 생각해볼게요.",
+    ]
 
     def __init__(self, stt, llm, tts,
                  event_bus=None, soul=None, memory=None, avatar_bridge=None):
@@ -58,6 +67,15 @@ class VoicePipeline:
         last_emotion = None
 
         self.tts.start_workers()
+        # 비쥬얼라이저 broadcast용 이벤트 루프 등록
+        if hasattr(self.tts, "set_loop"):
+            self.tts.set_loop(loop)
+        def _enqueue_filler():
+            filler = random.choice(self._THINKING_FILLERS)
+            print(f"[Pipeline] → TTS 필러: {filler}")
+            self.tts.enqueue(filler)
+
+        _enqueue_filler()
         def _clean_text(text: str) -> str:
             """이모지, 특수문자 제거."""
             # 이모지 제거

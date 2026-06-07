@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# .env 로드
-load_dotenv()
+# .env 로드 (backend/ 또는 프로젝트 루트 모두 탐색)
+_env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=_env_path)
 
 def get_env_strict(key, default=None, is_path=False):
     value = os.getenv(key, default)

@@ -51,7 +51,7 @@ class SoulConfig:
         return cls(**{k: v for k, v in data.items() if v is not None})
 
     @classmethod
-    def from_file(cls, path: str) -> "SoulConfig":
+    def from_file(cls, path: str) -> "SoulConfig":  
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls(**data)
 
