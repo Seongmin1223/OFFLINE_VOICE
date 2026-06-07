@@ -1,18 +1,31 @@
 from __future__ import annotations
 import asyncio
 import re
+import random
 import threading
 import time
 from typing import Optional
+
 from config import config
 from core.event_bus import EventBus
-from domains.soul.soul_container import SoulContainer, SoulConfig
-from domains.soul.memory import MemoryManager
 from core.context_builder import build_messages
 from core.tokenizer import count_tokens
+from domains.soul.soul_container import SoulContainer, SoulConfig
+from domains.soul.memory import MemoryManager
+from domains.soul.emotion import Emotion
+from api.avatar_ws import broadcast
 
 
-MIN_SENTENCE_LEN = 7
+MIN_SENTENCE_LEN = 25
+
+_THINKING_FILLERS = [
+    "음...",
+    "어...",
+    "흠...",
+    "잠깐만.",
+    "음, 잠깐만.",
+    "어, 생각해볼게.",
+]
 
 
 class VoicePipeline:
@@ -31,11 +44,11 @@ class VoicePipeline:
     def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         """main event loop reference. mic_loop 시작 시 1회 호출."""
         self._loop = loop
+        if hasattr(self.tts, "set_loop"):
+            self.tts.set_loop(loop)
 
     def trigger_prefill(self) -> None:
-        """VAD 'start' 콜백 — 별도 스레드에서 system+memory prefill 던짐.
-        sync 컨텍스트(recorder의 sync 스레드)에서 호출됨.
-        """
+        """VAD 'start' 콜백 — 별도 스레드에서 system+memory prefill 던짐."""
         if self._loop is None:
             print("[Prefill] loop 미설정 — 스킵")
             return
@@ -45,12 +58,11 @@ class VoicePipeline:
 
         def _run():
             try:
-                # build_messages는 async (DB I/O) — main loop에서 실행
                 fut = asyncio.run_coroutine_threadsafe(
                     build_messages(
                         system_prompt=self.soul.build_system_prompt(),
                         memory=self.memory,
-                        user_text="",  # prefill은 user_text 자리 비움
+                        user_text="",
                         token_budget=config.LLM_CONTEXT_SIZE - config.LLM_MAX_TOKENS,
                     ),
                     self._loop,
@@ -72,6 +84,8 @@ class VoicePipeline:
         # loop 캐시 (set_loop 미호출 대비)
         if self._loop is None:
             self._loop = asyncio.get_running_loop()
+            if hasattr(self.tts, "set_loop"):
+                self.tts.set_loop(self._loop)
 
         t_start = time.perf_counter()
 
@@ -88,7 +102,7 @@ class VoicePipeline:
 
         if not user_text.strip():
             print("[Pipeline] ⚠ 인식된 텍스트가 없습니다.")
-            return {"user_text": "", "ai_text": ""}
+            return {"user_text": "", "ai_text": "", "emotion": "neutral"}
 
         await self.event_bus.publish("stt_complete", {"text": user_text})
 
@@ -110,30 +124,44 @@ class VoicePipeline:
         full_response: list[str] = []
         pending = ""
         t_first_tts: float | None = None
+        last_emotion: Optional[Emotion] = None
         loop = asyncio.get_event_loop()
 
         self.tts.start_workers()
 
+        # 필러 한 번 — LLM 응답 기다리는 동안의 정적 메우기
+        filler = random.choice(_THINKING_FILLERS)
+        print(f"[Pipeline] → TTS 필러: {filler}")
+        self.tts.enqueue(filler)
+
+        # 말하기 시작 신호
+        await broadcast({"type": "speaking", "speaking": True})
+
         def _clean_text(text: str) -> str:
-            """이모지, 특수문자 제거."""
             text = re.sub(r'[^\w\s\.,!?~\-가-힣a-zA-Z]', '', text)
             text = re.sub(r'\s+', ' ', text).strip()
             return text
 
         def on_sentence(sentence: str):
-            nonlocal pending, t_first_tts
-            clean = self.soul.parse_response(sentence)
+            nonlocal pending, t_first_tts, last_emotion
+            clean, emotion = self.soul.parse_response(sentence)
             clean = _clean_text(clean)
             if not clean.strip():
                 return
+            last_emotion = emotion
             pending += clean
             if len(pending) >= MIN_SENTENCE_LEN:
                 print(f"[Pipeline] → TTS: {pending}")
                 full_response.append(pending)
-                self.tts.enqueue(pending)
+                self.tts.enqueue(pending, emotion.value)
                 if t_first_tts is None:
                     t_first_tts = time.perf_counter()
-                    print(f"[Timing] 첫 음성 enqueue: {(t_first_tts - t_start)*1000:.0f}ms (전체 누적)")
+                    print(f"[Timing] 첫 음성 enqueue: {(t_first_tts - t_start)*1000:.0f}ms")
+                # 감정/말풍선 페이지로 전송 (thread-safe)
+                asyncio.run_coroutine_threadsafe(
+                    broadcast({"type": "emotion", "emotion": emotion.value, "text": pending}),
+                    self._loop,
+                )
                 pending = ""
 
         await loop.run_in_executor(
@@ -144,15 +172,20 @@ class VoicePipeline:
         if pending.strip():
             print(f"[Pipeline] → TTS (잔여): {pending}")
             full_response.append(pending)
-            self.tts.enqueue(pending)
+            emo_value = (last_emotion or Emotion.NEUTRAL).value
+            self.tts.enqueue(pending, emo_value)
 
         # 재생 완료 대기
         self.tts.wait_done()
+
+        # 말하기 종료 신호
+        await broadcast({"type": "speaking", "speaking": False})
 
         t_end = time.perf_counter()
         print(f"[Timing] 전체: {(t_end - t_start)*1000:.0f}ms")
 
         ai_text = " ".join(full_response)
+        emotion = last_emotion or Emotion.NEUTRAL
 
         await self.memory.add_turn("user",      user_text, token_count=count_tokens(user_text))
         await self.memory.add_turn("assistant", ai_text,   token_count=count_tokens(ai_text))
@@ -160,6 +193,7 @@ class VoicePipeline:
         result = {
             "user_text": user_text,
             "ai_text":   ai_text,
+            "emotion":   emotion.value,
             "turn":      self.memory.turn_count,
         }
         await self.event_bus.publish("turn_complete", result)

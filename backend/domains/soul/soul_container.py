@@ -1,5 +1,8 @@
 from __future__ import annotations
+import re
 from dataclasses import dataclass, field
+
+from domains.soul.emotion import Emotion, EmotionState
 
 
 PERSONALITY_PRESETS: dict[str, dict] = {
@@ -31,7 +34,8 @@ class SoulConfig:
 
 class SoulContainer:
     def __init__(self, config: SoulConfig | None = None):
-        self.config = config or SoulConfig.from_preset("pobi")
+        self.config  = config or SoulConfig.from_preset("pobi")
+        self.emotion = EmotionState()
 
     def build_system_prompt(self) -> str:
         cfg = self.config
@@ -46,10 +50,33 @@ class SoulContainer:
 {age_str}성격: {traits_str}
 말투: {cfg.tone}
 스타일: {cfg.speech_style}{forbidden_str}
+
+현재 감정: {self.emotion.current.value}
+
+응답할 때 반드시 다음 형식을 사용하세요:
+[EMOTION:감정이름] 응답 텍스트
+
+감정 이름 목록: neutral, happy, sad, angry, surprised, shy, thinking
 """
 
-    def parse_response(self, raw: str) -> str:
-        return raw.strip()
+    def parse_response(self, raw: str) -> tuple[str, Emotion]:
+        pattern = r"\[EMOTION:(\w+)\]"
+        match = re.search(pattern, raw)
+        if match:
+            emotion = Emotion.from_str(match.group(1))
+            clean   = re.sub(pattern, "", raw).strip()
+        else:
+            emotion = Emotion.NEUTRAL
+            clean   = raw.strip()
+        self.emotion.update(emotion)
+        return clean, emotion
+
+    @property
+    def current_emotion(self) -> Emotion:
+        return self.emotion.current
 
     def soul_info(self) -> dict:
-        return {"name": self.config.name}
+        return {
+            "name":    self.config.name,
+            "emotion": self.emotion.current.value,
+        }

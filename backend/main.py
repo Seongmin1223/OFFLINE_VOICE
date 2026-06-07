@@ -14,9 +14,12 @@ from config import config
 
 
 def create_app(pipeline: VoicePipeline) -> FastAPI:
+    import os
     from api.routes import router
     from api.websocket import websocket_endpoint
+    from api.avatar_ws import avatar_websocket_endpoint
     from fastapi.responses import HTMLResponse
+    from fastapi.staticfiles import StaticFiles
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -40,6 +43,10 @@ def create_app(pipeline: VoicePipeline) -> FastAPI:
 
     app.include_router(router, prefix="/api/v1")
     app.add_api_websocket_route("/ws", websocket_endpoint)
+    app.add_api_websocket_route("/ws/avatar", avatar_websocket_endpoint)
+
+    _frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
+    app.mount("/ui", StaticFiles(directory=_frontend_dir, html=True), name="ui")
 
     # Standalone preset(헤더 + 로고)을 살리고 URL 입력바만 CSS로 숨김
     _SWAGGER_HTML = """<!DOCTYPE html>
@@ -149,6 +156,34 @@ async def run_loop():
         await disconnect()
 
 
+async def run_tts_only(host: str, port: int):
+    """마이크 루프 / 외부 STT·LLM 서버 없이 FastAPI만 띄움. TTS visualizer 테스트용."""
+    stt       = WhisperEngine()
+    llm       = LlamaEngine()
+    tts       = PiperEngine()
+    event_bus = EventBus()
+    pipeline  = VoicePipeline(stt, llm, tts, event_bus=event_bus)
+
+    app = create_app(pipeline)
+    uvicorn_config = uvicorn.Config(app, host=host, port=port, log_level="info")
+    server = uvicorn.Server(uvicorn_config)
+
+    async def _open_browser():
+        await asyncio.sleep(1.5)
+        import webbrowser
+        browser_host = "localhost" if host in ("0.0.0.0", "") else host
+        url = f"http://{browser_host}:{port}/ui/avatar.html"
+        print(f"[Browser] 자동으로 열기: {url}")
+        webbrowser.open(url)
+
+    print("=" * 50)
+    print("  TTS 전용 모드 (마이크/LLM/STT 없음)")
+    print("  페이지 하단 입력칸에 텍스트를 넣으면 포비가 읽어줘요")
+    print("=" * 50)
+
+    await asyncio.gather(server.serve(), _open_browser())
+
+
 async def run_server(host: str, port: int):
     """마이크 루프 + FastAPI 서버 동시 실행."""
     stt       = WhisperEngine()
@@ -165,10 +200,19 @@ async def run_server(host: str, port: int):
     )
     server = uvicorn.Server(uvicorn_config)
 
-    # 마이크 루프 + 서버 동시 실행
+    async def _open_browser():
+        await asyncio.sleep(1.5)
+        import webbrowser
+        browser_host = "localhost" if host in ("0.0.0.0", "") else host
+        url = f"http://{browser_host}:{port}/ui/avatar.html"
+        print(f"[Browser] 자동으로 열기: {url}")
+        webbrowser.open(url)
+
+    # 마이크 루프 + 서버 + 브라우저 동시 실행
     await asyncio.gather(
         server.serve(),
         mic_loop(pipeline),
+        _open_browser(),
     )
 
 
@@ -185,6 +229,10 @@ if __name__ == "__main__":
 
     sub.add_parser("loop", help="마이크 실시간 루프")
 
+    tts_only = sub.add_parser("tts-only", help="TTS visualizer 테스트 (마이크/LLM/STT 없음)")
+    tts_only.add_argument("--host", default=config.API_HOST)
+    tts_only.add_argument("--port", type=int, default=config.API_PORT)
+
     args = parser.parse_args()
 
     if args.mode == "server":
@@ -193,5 +241,7 @@ if __name__ == "__main__":
         asyncio.run(run_once(args.audio))
     elif args.mode == "loop":
         asyncio.run(run_loop())
+    elif args.mode == "tts-only":
+        asyncio.run(run_tts_only(args.host, args.port))
     else:
         asyncio.run(run_loop())
