@@ -76,18 +76,6 @@
     gap: 14px;
   }
 
-  #emotion-badge {
-    background: rgba(255,255,255,0.85);
-    border: 2px solid #ffd9b0;
-    border-radius: 24px;
-    padding: 8px 18px;
-    font-size: 14px;
-    font-weight: 700;
-    color: #b56a4a;
-    box-shadow: 0 4px 12px rgba(255,180,140,0.25);
-    transition: all 0.4s ease;
-  }
-
   #visualizer-container {
     width: 560px;
     height: 200px;
@@ -185,14 +173,6 @@
     letter-spacing: 0.3px;
   }
 
-  /* 감정별 색상 (배지 강조) */
-  .emotion-happy     { color: #e89a2c; border-color: #ffd07a !important; }
-  .emotion-sad       { color: #3b7fbf; border-color: #b6daf7 !important; }
-  .emotion-angry     { color: #d96a55; border-color: #f7b6a8 !important; }
-  .emotion-surprised { color: #2fa67a; border-color: #b6e7d2 !important; }
-  .emotion-shy       { color: #cf6593; border-color: #f7c1d6 !important; }
-  .emotion-thinking  { color: #8a5fcc; border-color: #d6c1f5 !important; }
-  .emotion-neutral   { color: #b56a4a; }
 </style>
 </head>
 <body>
@@ -211,7 +191,6 @@
 <div id="subtitle">친구야, 오늘은 무슨 이야기 할까?</div>
 
 <div id="visualizer-wrapper">
-  <div id="emotion-badge">😊 기분 좋아</div>
   <div id="visualizer-container"></div>
 </div>
 
@@ -246,7 +225,7 @@
       await fetch("/api/v1/tts/test", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({text: text, emotion: "neutral"})
+        body: JSON.stringify({text: text})
       });
     } catch (e) {
       console.error("[TTS test] 전송 실패", e);
@@ -262,15 +241,6 @@
 const BAR_COUNT = 56;
 const MAX_HEIGHT = 120;
 const MIN_HEIGHT = 6;
-const EMOTION_LABEL = {
-  neutral:   { emoji: "😊", text: "기분 좋아" },
-  happy:     { emoji: "😄", text: "신나요!"  },
-  sad:       { emoji: "😢", text: "슬퍼요"   },
-  angry:     { emoji: "😠", text: "삐졌어요" },
-  surprised: { emoji: "😲", text: "깜짝!"    },
-  shy:       { emoji: "😳", text: "부끄러워" },
-  thinking:  { emoji: "🤔", text: "생각 중"  }
-};
 
 const container = document.getElementById("visualizer-container");
 const bars = [];
@@ -394,11 +364,6 @@ function connect() {
 
 function handleMessage(msg) {
   switch (msg.type) {
-    case "emotion":
-      updateEmotion(msg.emotion);
-      if (msg.text) updateSpeechBubble(msg.text);
-      break;
-
     case "speaking":
       const speaking = msg.speaking ?? msg.is_speaking ?? false;
       setSpeaking(speaking);
@@ -413,7 +378,6 @@ function handleMessage(msg) {
       break;
 
     case "state":
-      updateEmotion(msg.current);
       document.getElementById("status-turn").textContent = `이야기 ${msg.turn || 0}번`;
       break;
 
@@ -425,13 +389,6 @@ function handleMessage(msg) {
       console.log("[친구]", msg.text);
       break;
   }
-}
-
-function updateEmotion(emotion) {
-  const badge = document.getElementById("emotion-badge");
-  const info = EMOTION_LABEL[emotion] || EMOTION_LABEL.neutral;
-  badge.textContent = `${info.emoji} ${info.text}`;
-  badge.className = `emotion-${emotion}`;
 }
 
 function updateSpeechBubble(text) {
