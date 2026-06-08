@@ -79,7 +79,7 @@ start "Llama LLM Server" cmd /k ""%LLAMA_DIR%%LLAMA_EXE%" -m "%LLAMA_MODEL_PATH%
 timeout /t 7 /nobreak >nul
 
 echo [3/3] FastAPI Backend
-start "FastAPI Backend" cmd /k "cd /d "%ROOT%backend" && "%PY%" main.py"
+start "FastAPI Backend" cmd /k "cd /d "%ROOT%backend" && "%PY%" main.py server"
 
 echo.
 echo All three windows launched. Close any of them to stop that service.

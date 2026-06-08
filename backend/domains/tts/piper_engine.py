@@ -20,17 +20,11 @@ from openvoice.api import ToneColorConverter
 from domains.tts.models import TTSRequest
 from config import config
 
-ONNX_PATH  = r'C:\voice\melotts_base_kr_v2.onnx'
-CKPT_PATH  = r'C:\OpenVoice\checkpoints_v2\converter'
-_NEUTRAL_REF = r'C:\dev\voices\neutral.wav'
-EMOTION_REF = {
-    'happy':   _NEUTRAL_REF,
-    'sad':     _NEUTRAL_REF,
-    'angry':   _NEUTRAL_REF,
-    'neutral': _NEUTRAL_REF,
-}
-TEMP_TTS = r'C:\dev\temp_tts.wav'
-TEMP_OUT = r'C:\dev\temp_out.wav'
+ONNX_PATH    = r'C:\voice\melotts_base_kr_v2.onnx'
+CKPT_PATH    = r'C:\OpenVoice\checkpoints_v2\converter'
+NEUTRAL_REF  = r'C:\dev\voices\neutral.wav'
+TEMP_TTS     = r'C:\dev\temp_tts.wav'
+TEMP_OUT     = r'C:\dev\temp_out.wav'
 
 
 _engine_instance = None
@@ -54,29 +48,23 @@ class _TTSCore:
         device = 'cpu'
         self.converter = ToneColorConverter(f'{CKPT_PATH}/config.json', device=device)
         self.converter.load_ckpt(f'{CKPT_PATH}/checkpoint.pth')
-        # 감정별 SE 미리 추출
-        print("[TTS] 감정 레퍼런스 추출 중...")
-        self.emotion_se = {}
-        for emotion, path in EMOTION_REF.items():
-            if os.path.exists(path):
-                se, _ = se_extractor.get_se(path, self.converter, vad=True)
-                self.emotion_se[emotion] = se
-                print(f"[TTS] {emotion} 추출 완료")
-            else:
-                print(f"[TTS] {emotion} 파일 없음: {path}")
-        if 'neutral' not in self.emotion_se:
-            raise FileNotFoundError("neutral.wav 필수")
+        # 톤 변환용 단일 reference (neutral)
+        print("[TTS] 톤 레퍼런스 추출 중...")
+        if not os.path.exists(NEUTRAL_REF):
+            raise FileNotFoundError(f"neutral reference 필수: {NEUTRAL_REF}")
+        self.tgt_se, _ = se_extractor.get_se(NEUTRAL_REF, self.converter, vad=True)
+        print("[TTS] 톤 레퍼런스 추출 완료")
         # MeloTTS 기본 화자의 src_se 캐시 (매 합성마다 whisper 분할 반복 방지)
         self._cached_src_se = None
         # 워밍: 첫 합성은 BERT 임베딩/그래프 초기화로 느려서 미리 한 번 돌려둠
         print("[TTS] 워밍 중...")
         try:
-            self.synthesize("준비 완료", "neutral")
+            self.synthesize("준비 완료")
             print("[TTS] 워밍 완료")
         except Exception as e:
             print(f"[TTS] 워밍 스킵: {e}")
 
-    def synthesize(self, text: str, emotion: str = 'neutral'):
+    def synthesize(self, text: str):
         bert, ja_bert, phones, tones, _ = utils.get_text_for_tts_infer(
             text, 'KR', self.tts.hps, 'cpu', self.tts.symbol_to_id)
         inputs = {
@@ -92,20 +80,17 @@ class _TTSCore:
         out = self.sess.run(None, inputs)
         audio_arr = out[0].squeeze()
         # 짧은 wav는 whisper 분할에 실패하므로 2초 미만이면 무음 패딩
-        # (src_se 캐시 후엔 whisper 자체가 안 도므로 더 줄여도 됨)
         if len(audio_arr) < 44100 * 2:
             audio_arr = np.pad(audio_arr, (0, 44100 * 2 - len(audio_arr)))
         sf.write(TEMP_TTS, audio_arr, 44100)
 
-        tgt_se = self.emotion_se.get(emotion, self.emotion_se['neutral'])
         try:
             if self._cached_src_se is None:
                 self._cached_src_se, _ = se_extractor.get_se(TEMP_TTS, self.converter, vad=False)
-            src_se = self._cached_src_se
             self.converter.convert(
                 audio_src_path=TEMP_TTS,
-                src_se=src_se,
-                tgt_se=tgt_se,
+                src_se=self._cached_src_se,
+                tgt_se=self.tgt_se,
                 output_path=TEMP_OUT,
             )
             audio, sr = sf.read(TEMP_OUT)
@@ -116,6 +101,15 @@ class _TTSCore:
 
 
 class PiperEngine:
+
+    _instance = None
+
+    @classmethod
+    def get_instance(cls) -> "PiperEngine":
+        """프로세스 전역에서 동일한 PiperEngine을 공유 (큐/스레드/_TTSCore 1개씩)."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
     def __init__(self):
         self._synth_queue: queue.Queue = queue.Queue()
@@ -149,9 +143,9 @@ class PiperEngine:
                 self._play_queue.put(None)
                 break
             try:
-                text, emotion = item
+                text = item
                 engine = get_engine()
-                samples, sr = engine.synthesize(text, emotion)
+                samples, sr = engine.synthesize(text)
                 self._play_queue.put((samples, sr))
             except Exception as e:
                 print(f"[TTS] 합성 오류: {e}")
@@ -183,24 +177,23 @@ class PiperEngine:
                 target=self._play_worker, daemon=True)
             self._play_thread.start()
 
-    def enqueue(self, text: str, emotion: str = 'neutral'):
+    def enqueue(self, text: str):
         self.start_workers()
-        self._synth_queue.put((text, emotion))
+        self._synth_queue.put(text)
 
     def wait_done(self):
         self._synth_queue.join()
         self._play_queue.join()
 
     def speak_sync(self, request: TTSRequest) -> None:
-        emotion = getattr(request, 'emotion', 'neutral')
-        print(f"[TTS] 음성 합성 중 ({emotion}): {request.text[:60]}...")
+        print(f"[TTS] 음성 합성 중: {request.text[:60]}...")
         engine = get_engine()
-        samples, sr = engine.synthesize(request.text, emotion)
+        samples, sr = engine.synthesize(request.text)
         print("[TTS] 합성 완료. 재생 중...")
         sd.play(samples, sr)
         sd.wait()
 
-    async def speak(self, text: str, emotion: str = 'neutral') -> None:
+    async def speak(self, text: str) -> None:
         loop    = asyncio.get_event_loop()
-        request = TTSRequest(text=text, emotion=emotion)
+        request = TTSRequest(text=text)
         await loop.run_in_executor(None, self.speak_sync, request)

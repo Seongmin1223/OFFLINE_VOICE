@@ -8,20 +8,17 @@ from api.avatar_ws import broadcast
 
 router = APIRouter(tags=["진단 및 모니터링"])
 
-# TTS 단독 테스트(visualizer 점검용) 인스턴스
-_tts = PiperEngine()
+# 프로세스 전역 공유 인스턴스 (main pipeline과 동일한 PiperEngine)
+_tts = PiperEngine.get_instance()
 
 
 class TTSTestRequest(BaseModel):
-    text:    str = Field(..., example="안녕하세요 포비예요")
-    emotion: str = Field("neutral", example="neutral",
-                         description="neutral/happy/sad/angry/surprised/shy/thinking")
+    text: str = Field(..., example="안녕하세요 포비예요")
 
 
 class TTSTestResponse(BaseModel):
-    status:  str = "ok"
-    text:    str
-    emotion: str
+    status: str = "ok"
+    text:   str
 
 
 # ─────────────────────────────────────────────────────────
@@ -205,8 +202,7 @@ async def get_prefill_stats():
     response_model=TTSTestResponse,
     summary="TTS visualizer 단독 테스트",
     description=(
-        "STT/LLM 없이 입력 텍스트를 곧장 TTS로 합성해 페이지에서 visualizer를 점검합니다. "
-        "감정 라벨이 함께 page로 broadcast되어 감정 배지/말풍선도 같이 갱신됩니다."
+        "STT/LLM 없이 입력 텍스트를 곧장 TTS로 합성해 페이지에서 visualizer를 점검합니다."
     ),
 )
 async def tts_test(body: TTSTestRequest):
@@ -214,9 +210,8 @@ async def tts_test(body: TTSTestRequest):
     if hasattr(_tts, "set_loop"):
         _tts.set_loop(loop)
     _tts.start_workers()
-    await broadcast({"type": "emotion", "emotion": body.emotion, "text": body.text})
     await broadcast({"type": "speaking", "speaking": True})
-    _tts.enqueue(body.text, body.emotion)
+    _tts.enqueue(body.text)
     await loop.run_in_executor(None, _tts.wait_done)
     await broadcast({"type": "speaking", "speaking": False})
-    return TTSTestResponse(status="ok", text=body.text, emotion=body.emotion)
+    return TTSTestResponse(status="ok", text=body.text)

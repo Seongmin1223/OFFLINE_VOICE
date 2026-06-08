@@ -12,11 +12,10 @@ from core.context_builder import build_messages
 from core.tokenizer import count_tokens
 from domains.soul.soul_container import SoulContainer, SoulConfig
 from domains.soul.memory import MemoryManager
-from domains.soul.emotion import Emotion
 from api.avatar_ws import broadcast
 
 
-MIN_SENTENCE_LEN = 25
+MIN_SENTENCE_LEN = 7
 
 _THINKING_FILLERS = [
     "음...",
@@ -81,7 +80,7 @@ class VoicePipeline:
         threading.Thread(target=_run, daemon=True).start()
 
     async def run(self, audio_path: str) -> dict:
-        # loop 캐시 (set_loop 미호출 대비)
+        # main event loop 캐시 (set_loop 미호출 대비)
         if self._loop is None:
             self._loop = asyncio.get_running_loop()
             if hasattr(self.tts, "set_loop"):
@@ -102,7 +101,7 @@ class VoicePipeline:
 
         if not user_text.strip():
             print("[Pipeline] ⚠ 인식된 텍스트가 없습니다.")
-            return {"user_text": "", "ai_text": "", "emotion": "neutral"}
+            return {"user_text": "", "ai_text": ""}
 
         await self.event_bus.publish("stt_complete", {"text": user_text})
 
@@ -124,8 +123,6 @@ class VoicePipeline:
         full_response: list[str] = []
         pending = ""
         t_first_tts: float | None = None
-        last_emotion: Optional[Emotion] = None
-        loop = asyncio.get_event_loop()
 
         self.tts.start_workers()
 
@@ -134,7 +131,7 @@ class VoicePipeline:
         print(f"[Pipeline] → TTS 필러: {filler}")
         self.tts.enqueue(filler)
 
-        # 말하기 시작 신호
+        # 말하기 시작 신호 (페이지 visualizer 트리거)
         await broadcast({"type": "speaking", "speaking": True})
 
         def _clean_text(text: str) -> str:
@@ -143,28 +140,22 @@ class VoicePipeline:
             return text
 
         def on_sentence(sentence: str):
-            nonlocal pending, t_first_tts, last_emotion
-            clean, emotion = self.soul.parse_response(sentence)
+            nonlocal pending, t_first_tts
+            clean = self.soul.parse_response(sentence)
             clean = _clean_text(clean)
             if not clean.strip():
                 return
-            last_emotion = emotion
             pending += clean
             if len(pending) >= MIN_SENTENCE_LEN:
                 print(f"[Pipeline] → TTS: {pending}")
                 full_response.append(pending)
-                self.tts.enqueue(pending, emotion.value)
+                self.tts.enqueue(pending)
                 if t_first_tts is None:
                     t_first_tts = time.perf_counter()
                     print(f"[Timing] 첫 음성 enqueue: {(t_first_tts - t_start)*1000:.0f}ms")
-                # 감정/말풍선 페이지로 전송 (thread-safe)
-                asyncio.run_coroutine_threadsafe(
-                    broadcast({"type": "emotion", "emotion": emotion.value, "text": pending}),
-                    self._loop,
-                )
                 pending = ""
 
-        await loop.run_in_executor(
+        await self._loop.run_in_executor(
             None, self.llm.stream_sync, messages, on_sentence
         )
 
@@ -172,8 +163,7 @@ class VoicePipeline:
         if pending.strip():
             print(f"[Pipeline] → TTS (잔여): {pending}")
             full_response.append(pending)
-            emo_value = (last_emotion or Emotion.NEUTRAL).value
-            self.tts.enqueue(pending, emo_value)
+            self.tts.enqueue(pending)
 
         # 재생 완료 대기
         self.tts.wait_done()
@@ -185,7 +175,6 @@ class VoicePipeline:
         print(f"[Timing] 전체: {(t_end - t_start)*1000:.0f}ms")
 
         ai_text = " ".join(full_response)
-        emotion = last_emotion or Emotion.NEUTRAL
 
         await self.memory.add_turn("user",      user_text, token_count=count_tokens(user_text))
         await self.memory.add_turn("assistant", ai_text,   token_count=count_tokens(ai_text))
@@ -193,7 +182,6 @@ class VoicePipeline:
         result = {
             "user_text": user_text,
             "ai_text":   ai_text,
-            "emotion":   emotion.value,
             "turn":      self.memory.turn_count,
         }
         await self.event_bus.publish("turn_complete", result)

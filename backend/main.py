@@ -110,7 +110,7 @@ async def run_once(audio_path: str):
     try:
         stt       = WhisperEngine()
         llm       = LlamaEngine()
-        tts       = PiperEngine()
+        tts       = PiperEngine.get_instance()
         event_bus = EventBus()
         pipeline  = VoicePipeline(stt, llm, tts, event_bus=event_bus)
         result = await pipeline.run(audio_path)
@@ -129,7 +129,7 @@ async def run_loop():
     try:
         stt       = WhisperEngine()
         llm       = LlamaEngine()
-        tts       = PiperEngine()
+        tts       = PiperEngine.get_instance()
         event_bus = EventBus()
         pipeline  = VoicePipeline(stt, llm, tts, event_bus=event_bus)
         pipeline.set_loop(asyncio.get_running_loop())
@@ -160,7 +160,7 @@ async def run_tts_only(host: str, port: int):
     """마이크 루프 / 외부 STT·LLM 서버 없이 FastAPI만 띄움. TTS visualizer 테스트용."""
     stt       = WhisperEngine()
     llm       = LlamaEngine()
-    tts       = PiperEngine()
+    tts       = PiperEngine.get_instance()
     event_bus = EventBus()
     pipeline  = VoicePipeline(stt, llm, tts, event_bus=event_bus)
 
@@ -188,7 +188,7 @@ async def run_server(host: str, port: int):
     """마이크 루프 + FastAPI 서버 동시 실행."""
     stt       = WhisperEngine()
     llm       = LlamaEngine()
-    tts       = PiperEngine()
+    tts       = PiperEngine.get_instance()
     event_bus = EventBus()
     pipeline  = VoicePipeline(stt, llm, tts, event_bus=event_bus)
 
