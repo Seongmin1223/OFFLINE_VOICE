@@ -46,6 +46,24 @@ class VoicePipeline:
         if hasattr(self.tts, "set_loop"):
             self.tts.set_loop(loop)
 
+    async def warmup(self) -> None:
+        """LLM 모델 페이지 로딩 + 시스템 프롬프트 KV cache 사전 적재.
+        서버 시작 직후 1회 호출하면 사용자의 첫 발화도 콜드 페널티 없이 빠르게 응답.
+        """
+        print("[Warmup] LLM 사전 발화 시작...")
+        try:
+            messages = await build_messages(
+                system_prompt=self.soul.build_system_prompt(),
+                memory=self.memory,
+                user_text="",
+                token_budget=config.LLM_CONTEXT_SIZE - config.LLM_MAX_TOKENS,
+            )
+            loop = asyncio.get_event_loop()
+            elapsed = await loop.run_in_executor(None, self.llm.prefill_sync, messages)
+            print(f"[Warmup] LLM 사전 발화 완료 ({elapsed:.0f}ms)")
+        except Exception as e:
+            print(f"[Warmup] 오류: {e}")
+
     def trigger_prefill(self) -> None:
         """VAD 'start' 콜백 — 별도 스레드에서 system+memory prefill 던짐."""
         if self._loop is None:
