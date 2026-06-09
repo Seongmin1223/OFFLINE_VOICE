@@ -11,6 +11,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+# config 를 가장 먼저 import — load_dotenv 가 typecast_engine 의
+# 모듈 레벨 os.getenv() 평가보다 반드시 먼저 실행되어야 함
+from config import config
 from api.avatar_ws import avatar_websocket_endpoint, broadcast
 from core.event_bus import EventBus
 from core.pipeline import VoicePipeline
@@ -19,7 +22,6 @@ from database.connection import connect, disconnect
 from domains.stt.whisper_engine import WhisperEngine
 from domains.llm.llama_engine import LlamaEngine
 from domains.tts.typecast_engine import TypecastEngine
-from config import config
 
 
 # ── 시연용 라우터 (routes.py 의 /tts/test 와 동일 시그니처) ─────

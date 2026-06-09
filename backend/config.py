@@ -37,11 +37,13 @@ class Config:
     LLM_SYSTEM_PROMPT = "너는 5살 아이들의 다정한 친구, 귀여운 곰돌이 인형 '포비'야. 항상 친절하고 따뜻하게 아이들의 눈높이에 맞춰 반말로 대답해야 해."
     LLM_SERVER_URL = os.getenv("LLM_SERVER_URL", "http://127.0.0.1:8080")
 
-    #TTS 
-    TTS_MODEL = get_env_strict("TTS_MODEL_PATH", is_path=True)
-    TTS_CONFIG = get_env_strict("TTS_CONFIG_PATH", is_path=True)
-    PIPER_BIN = get_env_strict("PIPER_BIN_PATH", is_path=True)
-    TTS_OUTPUT_FILE = get_env_strict("TTS_OUTPUT_FILE", is_path=True)
+    # TTS — 레거시 변수. MeloTTS/OpenVoice 는 piper_engine.py 안의 하드코딩 경로,
+    # Typecast 모드는 typecast_engine.py 가 환경변수로 직접 처리하므로
+    # 이 4개는 어디서도 읽지 않음. strict 체크 제거(빈 값/미설정 허용).
+    TTS_MODEL = os.getenv("TTS_MODEL_PATH", "unused")
+    TTS_CONFIG = os.getenv("TTS_CONFIG_PATH", "unused")
+    PIPER_BIN = os.getenv("PIPER_BIN_PATH", "unused")
+    TTS_OUTPUT_FILE = os.getenv("TTS_OUTPUT_FILE", "unused")
 
     #AUDIO
     AUDIO_SAMPLE_RATE = int(os.getenv("AUDIO_SAMPLE_RATE", "16000"))
