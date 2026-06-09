@@ -34,3 +34,8 @@ samples_eval_*/
 whisper_small_011/
 local_benchmark*/
 local_benchmark*
+
+# 환경 변수 / 시크릿
+.env
+.env.local
+.env.*.local
