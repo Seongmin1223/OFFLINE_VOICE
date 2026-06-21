@@ -54,6 +54,9 @@ class Config:
     AUDIO_MAX_SEC = float(os.getenv("AUDIO_MAX_SEC", "30.0"))
     AUDIO_RECORD_FILE = get_env_strict("AUDIO_RECORD_FILE", is_path=True)
 
+    # DEMO — true면 STT/LLM 무시하고 demo_script.py를 순서대로 재생 (시연용)
+    DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+
     # ETC
     API_HOST = os.getenv("API_HOST", "0.0.0.0")
     API_PORT = int(os.getenv("API_PORT", "8000"))

@@ -10,6 +10,7 @@ from config import config
 from core.event_bus import EventBus
 from core.context_builder import build_messages
 from core.tokenizer import count_tokens
+from core.demo_script import DEMO_SCRIPT
 from domains.soul.soul_container import SoulContainer, SoulConfig
 from domains.soul.memory import MemoryManager
 from api.avatar_ws import broadcast
@@ -39,6 +40,7 @@ class VoicePipeline:
         self.memory    = memory or MemoryManager()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._prefill_in_flight = False
+        self._demo_idx = 0
 
     def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         """main event loop reference. mic_loop 시작 시 1회 호출."""
@@ -66,6 +68,8 @@ class VoicePipeline:
 
     def trigger_prefill(self) -> None:
         """VAD 'start' 콜백 — 별도 스레드에서 system+memory prefill 던짐."""
+        if config.DEMO_MODE:
+            return
         if self._loop is None:
             print("[Prefill] loop 미설정 — 스킵")
             return
@@ -97,6 +101,60 @@ class VoicePipeline:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    async def _run_scripted(self, t_start: float) -> dict:
+        """시연 모드 — 목소리가 감지될 때마다 DEMO_SCRIPT를 위에서부터 재생.
+        STT/LLM/DB 없이 TTS만 사용하므로 인식 오류로 매핑이 깨지지 않는다.
+        """
+        entry = DEMO_SCRIPT[self._demo_idx % len(DEMO_SCRIPT)]
+        self._demo_idx += 1
+        user_text = entry["q"]
+        ai_text   = entry["a"]
+
+        print(f"\n[Demo] ▶ {self._demo_idx}번째 발화 — 고정 스크립트 재생")
+        print(f"엔지니어: {user_text}")
+        print("POBY    : ", end="", flush=True)
+
+        self.tts.start_workers()
+        await broadcast({"type": "speaking", "speaking": True})
+
+        def _for_tts(sentence: str) -> str:
+            # [case:#0000] 토큰은 로그에만 흐르게 두고 TTS 합성에서는 제거.
+            sentence = re.sub(r'\[case:#\d+\]', '', sentence)
+            sentence = sentence.replace('"', '')
+            return re.sub(r'\s+', ' ', sentence).strip()
+
+        def _stream():
+            # 실제 토큰 생성처럼 글자 단위로 흘려 출력하고(콘솔엔 case 토큰까지 그대로),
+            # 문장이 완성될 때마다 case 토큰만 뺀 채 TTS로 넘겨 오버랩 재생.
+            buffer = ""
+            sentence_endings = (".", "!", "?", "~")
+            n = len(ai_text)
+            for i, ch in enumerate(ai_text):
+                print(ch, end="", flush=True)
+                time.sleep(0.04)  # 토큰 생성 속도 흉내
+                buffer += ch
+                # 문장부호 뒤가 공백/끝일 때만 분리 → "pom.xml" 같은 중간 점은 안 끊김
+                nxt = ai_text[i + 1] if i + 1 < n else ""
+                if ch in sentence_endings and (nxt == "" or nxt.isspace()):
+                    spoken = _for_tts(buffer)
+                    if spoken:
+                        self.tts.enqueue(spoken)
+                    buffer = ""
+            spoken = _for_tts(buffer)
+            if spoken:
+                self.tts.enqueue(spoken)
+            print()
+
+        await self._loop.run_in_executor(None, _stream)
+
+        self.tts.wait_done()
+        await broadcast({"type": "speaking", "speaking": False})
+
+        print(f"[Timing] 전체: {(time.perf_counter() - t_start)*1000:.0f}ms")
+        result = {"user_text": user_text, "ai_text": ai_text, "turn": self._demo_idx}
+        await self.event_bus.publish("turn_complete", result)
+        return result
+
     async def run(self, audio_path: str) -> dict:
         # main event loop 캐시 (set_loop 미호출 대비)
         if self._loop is None:
@@ -105,6 +163,10 @@ class VoicePipeline:
                 self.tts.set_loop(self._loop)
 
         t_start = time.perf_counter()
+
+        # 시연 모드 — STT/LLM 건너뛰고 고정 스크립트를 순서대로 재생
+        if config.DEMO_MODE:
+            return await self._run_scripted(t_start)
 
         # ── 1. STT ──────────────────────────────────────────
         print("\n[Pipeline] ▶ 1/3 음성 인식(STT)")

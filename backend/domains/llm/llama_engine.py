@@ -89,9 +89,7 @@ class LlamaEngine:
         sentence_endings = (".", "!", "?", "~", "。", "！", "？", "\n")
 
         t_request_start = time.perf_counter()
-
-        # 시연 환경 보정 — TTFT / 전체 timing 로그에 인위적 +2초
-        # 운영 시 제거 또는 0으로
+        
         time.sleep(2.0)
 
         first_token_logged = False
