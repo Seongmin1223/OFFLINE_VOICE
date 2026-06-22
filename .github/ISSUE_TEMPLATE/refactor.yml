@@ -1,0 +1,18 @@
+name: "Refactor"
+title: "Refactor# "
+description: "기능 수정"
+labels: ["refactor","code review"]
+body:
+  - type: textarea
+    id: refactor_description
+    attributes:
+      label: 리팩토링 개요
+      description: 리팩토링에 대한 설명을 작성해 주세요.
+      placeholder: 자세히 적을수록 좋습니다!
+    validations:
+      required: true
+  - type: textarea
+    id: reviewer_description
+    attributes:
+      label: 알아야 할 것
+      description: 리뷰어들이 알아야할 것이 있다면 작성해 주세요.
