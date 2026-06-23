@@ -9,6 +9,11 @@ from domains.soul.memory import MemoryManager
 # 시스템 프롬프트에 주입되는 블록 prefix — cutoff 로직에 동일하게 반영해야 함
 _SUMMARY_HEADER = "\n\n[이전 대화 요약]"
 _FACT_HEADER    = "\n\n[사용자 정보]"
+_SUMMARY_LIMIT   = 2
+_FACT_LIMIT      = 2
+# Tier-1 최근 턴은 매 요청마다 프롬프트 중간에 들어가 prefill(→TTFT)을 키운다.
+# 짧은 대화 코히런스에 필요한 최소(직전 1교환=2턴)만 유지해 첫 토큰을 빠르게.
+_TURN_LIMIT      = 2
 _BULLET         = "\n- "
 
 
@@ -37,29 +42,26 @@ async def build_messages(
     token_budget: int,
 ) -> list[dict]:
     """
-    Tier 3 → Tier 2 → Tier 1 순서로 컨텍스트 조립.
+    Tier 3(요약) → Tier 2(사실) → Tier 1(최근 턴) 순서로 컨텍스트 조립.
     token_budget 초과 시 Tier 3(오래된 것), 낮은 importance facts, 오래된 턴 순 컷오프.
     """
     db = await get_db()
 
-    # facts: 한 번에 너무 많이 주입하면 LLM이 특정 사실에 과몰입(anchoring).
-    # 5세 챗봇 응답에 참고할 사용자 정보는 6개로 제한.
-    summaries = await repo.get_recent_summaries(db, limit=10)
-    facts     = await memory.get_facts(min_importance=1, limit=6)
-    turns     = await memory.get_recent_turns(n=20)
+    summaries = await repo.get_recent_summaries(db, limit=_SUMMARY_LIMIT)
+    facts     = await memory.get_facts(min_importance=1, limit=_FACT_LIMIT)
+    turns     = await memory.get_recent_turns(n=_TURN_LIMIT)
 
     # 토큰 수 일괄 계산 — len 기반 in-memory 근사라 비용 무시 가능
-    # 시스템 프롬프트에 들어가는 블록 prefix(헤더, bullet)도 함께 측정
     texts = (
         [system_prompt, user_text, _SUMMARY_HEADER, _FACT_HEADER, _BULLET]
-        + [s["summary"]  for s in summaries]
-        + [f["content"]  for f in facts]
-        + [t["content"]  for t in turns]
+        + [s["summary"]   for s in summaries]
+        + [f["content"]   for f in facts]
+        + [t["content"]   for t in turns]
     )
     counts = [count_tokens(t) for t in texts]
 
-    sys_tok, user_tok                                 = counts[0], counts[1]
-    summary_header_tok, fact_header_tok, bullet_tok   = counts[2], counts[3], counts[4]
+    sys_tok, user_tok = counts[0], counts[1]
+    summary_header_tok, fact_header_tok, bullet_tok = counts[2], counts[3], counts[4]
     o = 5
     summary_toks = counts[o : o + len(summaries)]; o += len(summaries)
     fact_toks    = counts[o : o + len(facts)];     o += len(facts)

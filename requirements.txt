@@ -1,3 +1,4 @@
+aiosqlite==0.22.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
@@ -24,13 +25,24 @@ joblib==1.5.3
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 jupytext==1.14.5
-kokoro-onnx==0.5.0
+soundfile
+torch
+torchaudio
+transformers
+huggingface_hub
+librosa==0.9.1
+g2pkk
+jamo
+num2words
+anyascii
+mecab-python3
+unidic-lite
 language-tags==1.2.0
 markdown-it-py==2.2.0
 mdit-py-plugins==0.3.5
 mdurl==0.1.2
 mpmath==1.3.0
-numpy==2.2.6
+numpy<2.0
 onnxruntime==1.23.2
 packaging==26.0
 phonemizer-fork==3.3.2
@@ -54,6 +66,7 @@ requests==2.32.5
 rfc3986==1.5.0
 rpds-py==0.30.0
 segments==2.4.0
+silero-vad==6.2.1
 six==1.17.0
 smmap==5.0.0
 sounddevice==0.5.5
@@ -66,3 +79,4 @@ uritemplate==4.2.0
 urllib3==2.6.3
 uvicorn==0.42.0
 validators==0.20.0
+websockets==16.0

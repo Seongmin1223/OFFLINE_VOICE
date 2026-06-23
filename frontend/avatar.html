@@ -173,9 +173,74 @@
     letter-spacing: 0.3px;
   }
 
+  /* ── 로딩 오버레이 (시작 시 모델 warm 완료까지 표시) ── */
+  #loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    background:
+      radial-gradient(circle at 50% 30%, #fff7f0 0%, #ffe9f0 60%, #ffe1ec 100%);
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+  }
+  #loading-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #loading-bear {
+    font-size: 72px;
+    animation: bear-bounce 1.4s ease-in-out infinite;
+  }
+  @keyframes bear-bounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-14px) scale(1.06); }
+  }
+  #loading-title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: #b56a4a;
+    text-shadow: 0 2px 0 #fff;
+  }
+  #loading-msg {
+    font-size: 15px;
+    color: #b56a4a;
+    opacity: 0.8;
+  }
+  #loading-dots {
+    display: flex;
+    gap: 10px;
+  }
+  #loading-dots span {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #ffb3c8;
+    animation: dot-pulse 1.2s ease-in-out infinite;
+  }
+  #loading-dots span:nth-child(2) { animation-delay: 0.2s; background:#ffd1a8; }
+  #loading-dots span:nth-child(3) { animation-delay: 0.4s; background:#9ed7a7; }
+  #loading-dots span:nth-child(4) { animation-delay: 0.6s; background:#87c7f5; }
+  @keyframes dot-pulse {
+    0%, 100% { transform: scale(0.6); opacity: 0.4; }
+    50%      { transform: scale(1);   opacity: 1; }
+  }
+
 </style>
 </head>
 <body>
+
+<div id="loading-overlay">
+  <div id="loading-bear">🧸</div>
+  <div id="loading-title">POBY</div>
+  <div id="loading-msg">시스템 가동 중...</div>
+  <div id="loading-dots"><span></span><span></span><span></span><span></span></div>
+</div>
 
 <span class="deco"      style="top: 8%;  left: 10%;">☁️</span>
 <span class="deco s2"   style="top: 14%; right: 12%;">⭐</span>
@@ -388,6 +453,21 @@ function handleMessage(msg) {
     case "stt":
       console.log("[친구]", msg.text);
       break;
+
+    case "status":
+      handleStatus(msg);
+      break;
+  }
+}
+
+function handleStatus(msg) {
+  const overlay = document.getElementById("loading-overlay");
+  const msgEl = document.getElementById("loading-msg");
+  if (msg.message) msgEl.textContent = msg.message;
+  if (msg.state === "ready") {
+    overlay.classList.add("hidden");
+  } else {
+    overlay.classList.remove("hidden");
   }
 }
 
@@ -396,6 +476,49 @@ function updateSpeechBubble(text) {
 }
 
 connect();
+</script>
+
+<script>
+// ── 데모 모드 전용 트리거 ──────────────────────────────────
+// 서버가 demo 모드일 때만 "데모 실행" 버튼 표시. 클릭 시 녹음된 아동 질문
+// 음성을 먼저 들려주고(시연 영상용), 끝나면 동일 파일을 파이프라인에 투입.
+(async function setupDemo() {
+  let mode;
+  try {
+    mode = await (await fetch("/api/v1/runtime/mode")).json();
+  } catch (e) { return; }
+  if (!mode || !mode.demo_enabled) return;
+
+  const btn = document.createElement("button");
+  btn.textContent = "▶ 데모 실행";
+  btn.style.cssText =
+    "position:fixed; left:24px; bottom:24px; z-index:200; padding:12px 20px;" +
+    "border:none; border-radius:24px; background:#87c7f5; color:#fff; font-weight:700;" +
+    "font-size:14px; cursor:pointer; box-shadow:0 6px 18px rgba(135,199,245,0.45);";
+  document.body.appendChild(btn);
+
+  let running = false;
+  btn.addEventListener("click", async () => {
+    if (running) return;
+    running = true; btn.disabled = true; btn.textContent = "▶ 재생 중...";
+    const release = () => { running = false; btn.disabled = false; btn.textContent = "▶ 데모 실행"; };
+    try {
+      const r = await (await fetch("/api/v1/demo/reserve", { method: "POST" })).json();
+      const triggerRun = async () => {
+        try { await fetch("/api/v1/demo/run", { method: "POST" }); } catch (e) {}
+      };
+      const a = new Audio(r.url);
+      a.onended = triggerRun;
+      a.onerror = triggerRun;
+      a.play().catch(triggerRun);
+    } catch (e) {
+      console.error("[데모] 실패", e);
+    } finally {
+      // 파이프라인 완료(speaking:false)는 별도로 들어오므로 버튼은 잠시 후 해제
+      setTimeout(release, 2500);
+    }
+  });
+})();
 </script>
 </body>
 </html>

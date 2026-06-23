@@ -13,6 +13,8 @@ PERSONALITY_PRESETS: dict[str, dict] = {
     }
 }
 
+_DEFAULT_PRESET = "pobi"
+
 
 @dataclass
 class SoulConfig:
@@ -25,13 +27,13 @@ class SoulConfig:
 
     @classmethod
     def from_preset(cls, preset_name: str) -> "SoulConfig":
-        data = PERSONALITY_PRESETS.get(preset_name, PERSONALITY_PRESETS["pobi"])
+        data = PERSONALITY_PRESETS.get(preset_name, PERSONALITY_PRESETS[_DEFAULT_PRESET])
         return cls(**{k: v for k, v in data.items() if v is not None})
 
 
 class SoulContainer:
     def __init__(self, config: SoulConfig | None = None):
-        self.config = config or SoulConfig.from_preset("pobi")
+        self.config = config or SoulConfig.from_preset(_DEFAULT_PRESET)
 
     def build_system_prompt(self) -> str:
         cfg = self.config
@@ -45,7 +47,8 @@ class SoulContainer:
         return f"""너는 5살 아이들의 다정한 친구, 귀여운 곰돌이 인형 '{cfg.name}'야.
 {age_str}성격: {traits_str}
 말투: {cfg.tone}
-스타일: {cfg.speech_style}{forbidden_str}
+스타일: {cfg.speech_style}
+아이가 물어보면 쉽고 짧게, 한두 문장으로 다정하게 대답해.{forbidden_str}
 """
 
     def parse_response(self, raw: str) -> str:
