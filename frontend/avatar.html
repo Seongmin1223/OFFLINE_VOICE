@@ -2,318 +2,523 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fix Assistant</title>
+<title>포비 - 친구야 무슨 얘기 할까?</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  :root {
-    --bg:#f7f9fc; --surface:#ffffff; --line:#e6eaf1; --line2:#eef1f6;
-    --text:#1f2733; --muted:#6b7787; --primary:#2563eb; --primary-soft:#eef3fe;
-    --accent:#1d4ed8;
-  }
-  html, body { height:100%; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    background:var(--bg); color:var(--text);
-    font-family:'Pretendard','Apple SD Gothic Neo','맑은 고딕','Segoe UI',sans-serif;
-    display:flex; flex-direction:column; height:100vh; overflow:hidden;
-    -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(circle at 15% 20%, #ffe1ec 0%, transparent 40%),
+      radial-gradient(circle at 85% 30%, #d8efff 0%, transparent 45%),
+      radial-gradient(circle at 50% 90%, #fff3d6 0%, transparent 50%),
+      linear-gradient(180deg, #fff7f0 0%, #ffe9f0 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: '맑은 고딕', 'Apple SD Gothic Neo', 'Quicksand', 'Comic Sans MS', sans-serif;
+    color: #5b4a3f;
+    overflow: hidden;
+    gap: 22px;
+    position: relative;
   }
 
-  /* ── 헤더 ── */
-  header {
-    display:flex; align-items:center; gap:12px;
-    padding:14px 22px; border-bottom:1px solid var(--line); background:var(--surface);
+  /* 떠다니는 구름/별 데코 */
+  .deco {
+    position: absolute;
+    font-size: 22px;
+    opacity: 0.55;
+    animation: float 6s ease-in-out infinite;
+    pointer-events: none;
   }
-  .logo {
-    width:32px; height:32px; border-radius:9px; background:var(--primary);
-    display:flex; align-items:center; justify-content:center; font-size:17px;
-  }
-  .brand { display:flex; flex-direction:column; line-height:1.3; }
-  .brand .name { font-size:15.5px; font-weight:700; letter-spacing:-0.2px; }
-  .brand .sub  { font-size:12px; color:var(--muted); }
-  .state { margin-left:auto; display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted); }
-  .state .dot { width:8px; height:8px; border-radius:50%; background:#22a565; }
-  .state .dot.busy { background:var(--primary); }
+  .deco.s2 { animation-duration: 8s; animation-delay: -2s; }
+  .deco.s3 { animation-duration: 7s; animation-delay: -4s; }
+  .deco.s4 { animation-duration: 9s; animation-delay: -1s; }
 
-  /* ── 대화 ── */
-  #chat {
-    flex:1; overflow-y:auto; padding:30px 0 24px;
-    display:flex; flex-direction:column; gap:24px;
-  }
-  #chat::-webkit-scrollbar { width:10px; }
-  #chat::-webkit-scrollbar-thumb { background:#dde3ec; border-radius:8px; }
-  .turn { width:100%; max-width:740px; margin:0 auto; padding:0 24px; }
-
-  /* 사용자 메시지 — 오른쪽 옅은 버블 */
-  .turn.user { display:flex; justify-content:flex-end; }
-  .turn.user .text {
-    background:var(--primary-soft); color:#16335f; border:1px solid #dbe6fb;
-    padding:11px 15px; border-radius:14px 14px 4px 14px; max-width:80%;
-    font-size:15px; line-height:1.6;
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-12px) rotate(4deg); }
   }
 
-  /* 어시스턴트 — 왼쪽, 버블 없이 깔끔한 텍스트/카드 */
-  .turn.bot { display:flex; gap:13px; align-items:flex-start; }
-  .turn.bot .avatar {
-    flex:none; width:28px; height:28px; border-radius:8px; background:var(--primary);
-    display:flex; align-items:center; justify-content:center; font-size:14px; margin-top:2px;
+  #title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
-  .turn.bot .body { flex:1; min-width:0; }
-  .turn.bot .intro { font-size:15px; line-height:1.65; color:var(--text); margin-bottom:12px; font-weight:600; }
+  #title-bear {
+    font-size: 38px;
+    animation: wiggle 3.6s ease-in-out infinite;
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-6deg); }
+    50%      { transform: rotate(6deg); }
+  }
+  #title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 6px;
+    color: #b56a4a;
+    text-shadow: 0 2px 0 #fff, 0 4px 12px rgba(181,106,74,0.2);
+  }
+  #subtitle {
+    font-size: 13px;
+    color: #b56a4a;
+    opacity: 0.7;
+    margin-top: -8px;
+  }
 
-  .case {
-    display:grid; grid-template-columns:auto 1fr; gap:2px 12px; align-items:baseline;
-    padding:12px 14px; margin:8px 0; background:var(--surface);
-    border:1px solid var(--line); border-radius:12px;
+  #visualizer-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
   }
-  .case .cid {
-    grid-row:1 / span 2; align-self:center;
-    font-family:'SF Mono','Consolas','D2Coding',monospace; font-weight:700; font-size:13.5px;
-    color:var(--primary); background:var(--primary-soft); border:1px solid #dbe6fb;
-    border-radius:8px; padding:7px 9px; white-space:nowrap;
-  }
-  .case .meta { color:var(--muted); font-size:12.5px; }
-  .case .meta .sol { color:var(--accent); font-weight:600; }
-  .case .summary { color:var(--text); font-size:14px; line-height:1.5; }
 
-  .insight {
-    margin-top:12px; padding:12px 15px; border-radius:12px;
-    background:var(--primary-soft); border:1px solid #dbe6fb; color:#1e3a6e;
-    font-size:14px; line-height:1.6;
+  #visualizer-container {
+    width: 560px;
+    height: 200px;
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(8px);
+    border: 3px solid #ffe1c8;
+    border-radius: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 32px 28px;
+    box-shadow:
+      0 10px 30px rgba(255,170,140,0.2),
+      inset 0 0 30px rgba(255,255,255,0.4);
+    transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.3s ease;
   }
-  .insight::before { content:"💡  "; }
-
-  .typing { display:inline-flex; gap:5px; padding:6px 0; }
-  .typing span { width:7px; height:7px; border-radius:50%; background:#c2cdde; animation:blink 1.3s infinite; }
-  .typing span:nth-child(2){animation-delay:.2s;} .typing span:nth-child(3){animation-delay:.4s;}
-  @keyframes blink { 0%,70%,100%{opacity:.35;} 35%{opacity:1;} }
-
-  /* ── 하단 ── */
-  footer { border-top:1px solid var(--line); background:var(--surface); padding:16px 24px; }
-  .composer { width:100%; max-width:740px; margin:0 auto; display:flex; align-items:center; gap:12px; }
-  .hint { flex:1; color:var(--muted); font-size:13.5px; padding:12px 16px;
-    border:1px solid var(--line); border-radius:12px; background:var(--bg); }
-  #run-btn {
-    border:none; border-radius:12px; padding:12px 22px; font-size:14.5px; font-weight:700;
-    color:#fff; background:var(--primary); cursor:pointer; white-space:nowrap;
-    transition:background .15s ease;
+  #visualizer-container.speaking {
+    border-color: #ffb3c8;
+    box-shadow:
+      0 14px 38px rgba(255,140,170,0.3),
+      inset 0 0 40px rgba(255,200,220,0.3);
+    transform: translateY(-2px);
   }
-  #run-btn:hover { background:var(--accent); }
-  #run-btn:disabled { background:#aebfd6; cursor:default; }
 
-  /* warmup */
-  #warmup-overlay {
-    position:fixed; inset:0; z-index:1000; display:none;
-    flex-direction:column; align-items:center; justify-content:center; gap:16px;
-    background:rgba(247,249,252,0.94); backdrop-filter:blur(3px); color:var(--text);
+  .bar {
+    flex: 1;
+    max-width: 9px;
+    min-width: 5px;
+    border-radius: 50px;
+    height: 6px;
+    opacity: 0.55;
+    transition: opacity 0.3s ease;
   }
-  #warmup-overlay.show { display:flex; }
-  #warmup-overlay .spinner { width:46px; height:46px; border:3px solid #d8e2f3;
-    border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  #warmup-overlay .msg { font-size:17px; font-weight:700; color:var(--primary); }
-  #warmup-overlay .sub { font-size:13px; color:var(--muted); }
+  #visualizer-container.speaking .bar { opacity: 1; }
+
+  /* 무지개 막대 — 인덱스별 nth-child로 색 분포 */
+  .bar:nth-child(6n+1) { background: linear-gradient(to top, #ff9eb5, #ffc1d4); }
+  .bar:nth-child(6n+2) { background: linear-gradient(to top, #ffb380, #ffd1a8); }
+  .bar:nth-child(6n+3) { background: linear-gradient(to top, #ffe17a, #fff0b8); }
+  .bar:nth-child(6n+4) { background: linear-gradient(to top, #9ed7a7, #c5ebcd); }
+  .bar:nth-child(6n+5) { background: linear-gradient(to top, #87c7f5, #b9dffa); }
+  .bar:nth-child(6n+6) { background: linear-gradient(to top, #c7a3ec, #ddc4f5); }
+
+  #speech-bubble {
+    position: relative;
+    width: 560px;
+    background: #fff;
+    border: 3px solid #ffe1c8;
+    border-radius: 28px;
+    padding: 20px 24px;
+    font-size: 16px;
+    line-height: 1.7;
+    min-height: 64px;
+    color: #5b4a3f;
+    box-shadow: 0 8px 20px rgba(255,170,140,0.18);
+    transition: border-color 0.4s ease;
+  }
+  /* 말풍선 꼬리(위로) */
+  #speech-bubble::before {
+    content: '';
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-bottom: 14px solid #ffe1c8;
+  }
+  #speech-bubble::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 12px solid #fff;
+  }
+  #speech-bubble.speaking {
+    border-color: #ffb3c8;
+  }
+  #speech-bubble.speaking::before { border-bottom-color: #ffb3c8; }
+
+  #status-bar {
+    font-size: 12px;
+    color: #b56a4a;
+    opacity: 0.6;
+    display: flex;
+    gap: 18px;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── 로딩 오버레이 (시작 시 모델 warm 완료까지 표시) ── */
+  #loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    background:
+      radial-gradient(circle at 50% 30%, #fff7f0 0%, #ffe9f0 60%, #ffe1ec 100%);
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+  }
+  #loading-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #loading-bear {
+    font-size: 72px;
+    animation: bear-bounce 1.4s ease-in-out infinite;
+  }
+  @keyframes bear-bounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-14px) scale(1.06); }
+  }
+  #loading-title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: #b56a4a;
+    text-shadow: 0 2px 0 #fff;
+  }
+  #loading-msg {
+    font-size: 15px;
+    color: #b56a4a;
+    opacity: 0.8;
+  }
+  #loading-dots {
+    display: flex;
+    gap: 10px;
+  }
+  #loading-dots span {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #ffb3c8;
+    animation: dot-pulse 1.2s ease-in-out infinite;
+  }
+  #loading-dots span:nth-child(2) { animation-delay: 0.2s; background:#ffd1a8; }
+  #loading-dots span:nth-child(3) { animation-delay: 0.4s; background:#9ed7a7; }
+  #loading-dots span:nth-child(4) { animation-delay: 0.6s; background:#87c7f5; }
+  @keyframes dot-pulse {
+    0%, 100% { transform: scale(0.6); opacity: 0.4; }
+    50%      { transform: scale(1);   opacity: 1; }
+  }
+
 </style>
 </head>
 <body>
 
-<!-- 로딩 화면: 페이지 로드 즉시 표시, 서버가 "ready" 보내면 사라짐 -->
-<div id="warmup-overlay" class="show">
-  <div class="spinner"></div>
-  <div class="msg" id="warmup-msg">시스템 가동 중</div>
-  <div class="sub">모델을 메모리에 적재하고 있습니다. 잠시만 기다려 주세요.</div>
+<div id="loading-overlay">
+  <div id="loading-bear">🧸</div>
+  <div id="loading-title">POBY</div>
+  <div id="loading-msg">시스템 가동 중...</div>
+  <div id="loading-dots"><span></span><span></span><span></span><span></span></div>
 </div>
 
-<header>
-  <div class="logo">🛠️</div>
-  <div class="brand">
-    <span class="name">Fix Assistant</span>
-    <span class="sub">유지보수 장애 이력 회상</span>
-  </div>
-  <div class="state"><span class="dot" id="dot"></span><span id="state-text">온라인</span></div>
-</header>
+<span class="deco"      style="top: 8%;  left: 10%;">☁️</span>
+<span class="deco s2"   style="top: 14%; right: 12%;">⭐</span>
+<span class="deco s3"   style="bottom: 18%; left: 8%;">🌷</span>
+<span class="deco s4"   style="bottom: 12%; right: 10%;">☁️</span>
+<span class="deco s2"   style="top: 50%; left: 4%;">✨</span>
+<span class="deco s3"   style="top: 60%; right: 5%;">💗</span>
 
-<div id="chat"></div>
+<div id="title-wrap">
+  <span id="title-bear">🧸</span>
+  <span id="title">POBY</span>
+</div>
+<div id="subtitle">친구야, 오늘은 무슨 이야기 할까?</div>
 
-<footer>
-  <div class="composer">
-    <div class="hint" id="hint">아래 <b>실행</b>을 누르면 현장 엔지니어의 음성 질의가 입력됩니다.</div>
-    <audio id="player" preload="auto" style="display:none;"></audio>
-    <button id="run-btn">실행</button>
-  </div>
-</footer>
+<div id="visualizer-wrapper">
+  <div id="visualizer-container"></div>
+</div>
+
+<div id="speech-bubble">안녕! 나는 포비야. 같이 재미있는 이야기 하자~ 🐻</div>
+
+<div id="status-bar">
+  <span id="status-ws">🔌 연결하는 중...</span>
+  <span id="status-turn">이야기 0번</span>
+</div>
+
+<div id="tts-test-bar" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+     display:flex; gap:8px; width:560px; max-width:90vw; z-index:100;">
+  <input id="tts-input" type="text" placeholder="포비에게 읽어주고 싶은 말을 적어보세요"
+    style="flex:1; padding:12px 16px; border:2px solid #ffe1c8; border-radius:24px;
+           background:rgba(255,255,255,0.95); font-size:14px; color:#5b4a3f; outline:none;
+           box-shadow:0 6px 18px rgba(255,170,140,0.2);">
+  <button id="tts-send"
+    style="padding:12px 18px; border:none; border-radius:24px; background:#ffb3c8; color:#fff;
+           font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(255,140,170,0.35);
+           white-space:nowrap;">
+    🐻 말 시키기
+  </button>
+</div>
 
 <script>
-  // ── 데모 음성 자동 재생 ──
-  let demoRunning = false;
-  let inputMode = "demo";
-  const runBtn = document.getElementById("run-btn");
-  const player = document.getElementById("player");
-  const hint   = document.getElementById("hint");
-
-  function applyInputMode() {
-    const isDemo = inputMode === "demo";
-    runBtn.style.display = isDemo ? "" : "none";
-    runBtn.disabled = !isDemo || demoRunning;
-    if (!isDemo) hint.textContent = "마이크 입력 대기 중...";
-  }
-
-  async function loadRuntimeMode() {
+  async function sendTtsTest() {
+    const input = document.getElementById("tts-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
     try {
-      const r = await fetch("/api/v1/runtime/mode", { cache: "no-store" });
-      if (r.ok) {
-        const d = await r.json();
-        inputMode = d.mode || "demo";
-      }
-    } catch (e) { console.warn(e); }
-    applyInputMode();
-  }
-
-  async function runNext() {
-    if (inputMode !== "demo") return;
-    if (demoRunning) return;
-    demoRunning = true;
-    runBtn.disabled = true; hint.textContent = "🎙️ 음성 질의 입력 중...";
-    let demo;
-    try {
-      const r = await fetch("/api/v1/demo/reserve", { method:"POST" });
-      if (!r.ok) throw new Error(await r.text());
-      demo = await r.json();
+      await fetch("/api/v1/tts/test", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text: text})
+      });
     } catch (e) {
-      demoRunning = false;
-      hint.textContent = "실행 실패: " + (e.message || e);
-      runBtn.disabled = false;
-      return;
+      console.error("[TTS test] 전송 실패", e);
     }
+  }
+  document.getElementById("tts-send").addEventListener("click", sendTtsTest);
+  document.getElementById("tts-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendTtsTest();
+  });
+</script>
+
+<script>
+const BAR_COUNT = 56;
+const MAX_HEIGHT = 120;
+const MIN_HEIGHT = 6;
+
+const container = document.getElementById("visualizer-container");
+const bars = [];
+for (let i = 0; i < BAR_COUNT; i++) {
+  const bar = document.createElement("div");
+  bar.className = "bar";
+  container.appendChild(bar);
+  bars.push(bar);
+}
+
+let isSpeaking = false;
+let targets = new Array(BAR_COUNT).fill(MIN_HEIGHT);
+let currents = new Array(BAR_COUNT).fill(MIN_HEIGHT);
+
+// 서버에서 받은 실제 오디오 프레임 큐
+let frameQueue = [];
+let activeStream = null;  // { frames, fps, startedAt }
+
+function pickRealFrame(ts) {
+  while (true) {
+    if (!activeStream) {
+      if (frameQueue.length === 0) return false;
+      activeStream = frameQueue.shift();
+      activeStream.startedAt = ts;
+    }
+    const elapsedSec = (ts - activeStream.startedAt) / 1000;
+    const idx = Math.floor(elapsedSec * activeStream.fps);
+    if (idx >= activeStream.frames.length) {
+      activeStream = null;
+      continue;
+    }
+    const frame = activeStream.frames[idx];
+    // 프레임 자체의 max로 또 한 번 정규화 → 작은 청크도 확실히 솟게
+    let frameMax = 0;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const v = frame[i] ?? 0;
+      if (v > frameMax) frameMax = v;
+    }
+    const scale = frameMax > 0.05 ? 1.0 / frameMax : 1.0;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const v = Math.min((frame[i] ?? 0) * scale, 1.0);
+      targets[i] = MIN_HEIGHT + v * (MAX_HEIGHT - MIN_HEIGHT);
+    }
+    return true;
+  }
+}
+
+let lastIdleUpdate = 0;
+function genIdleTargets(ts) {
+  // 잔잔한 호흡 패턴 (살짝 더 부드럽고 작게)
+  const phase = ts * 0.0014;
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const wave = Math.sin(phase + i * 0.23) * 0.5 + 0.5;
+    targets[i] = MIN_HEIGHT + wave * 8;
+  }
+}
+
+function animate(ts) {
+  if (!ts) ts = performance.now();
+
+  const drivenByAudio = pickRealFrame(ts);
+  if (!drivenByAudio) {
+    if (ts - lastIdleUpdate > 50) {
+      lastIdleUpdate = ts;
+      genIdleTargets(ts);
+    }
+  }
+
+  const lerp = drivenByAudio ? 0.55 : 0.08;
+  for (let i = 0; i < BAR_COUNT; i++) {
+    currents[i] += (targets[i] - currents[i]) * lerp;
+    bars[i].style.height = currents[i].toFixed(1) + "px";
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+function setSpeaking(state) {
+  isSpeaking = state;
+  container.classList.toggle("speaking", state);
+  if (!state) {
+    frameQueue.length = 0;
+    activeStream = null;
+  }
+}
+
+function pushAudioFrames(frames, fps) {
+  frameQueue.push({ frames, fps: fps || 30, startedAt: 0 });
+}
+
+// ── WebSocket ─────────────────────────────────────────────
+const WS_URL = "ws://localhost:8000/ws/avatar";
+let ws, reconnectTimer;
+
+function connect() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    const el = document.getElementById("status-ws");
+    el.textContent = "💖 포비랑 연결됐어요";
+    clearTimeout(reconnectTimer);
+  };
+
+  ws.onclose = () => {
+    const el = document.getElementById("status-ws");
+    el.textContent = "💤 포비가 잠시 쉬는 중...";
+    setSpeaking(false);
+    reconnectTimer = setTimeout(connect, 3000);
+  };
+
+  ws.onmessage = (event) => {
     try {
-      player.src = `${demo.url}?t=${Date.now()}`; player.currentTime = 0;
-      await player.play();
-      await new Promise(r => player.ended ? r() : player.addEventListener("ended", r, {once:true}));
-    } catch (e) { console.warn(e); }
-    hint.textContent = "질의가 입력되었습니다.";
-    try {
-      const r = await fetch("/api/v1/demo/run", { method:"POST" });
-      if (!r.ok) throw new Error(await r.text());
+      const msg = JSON.parse(event.data);
+      handleMessage(msg);
     } catch (e) {
-      demoRunning = false;
-      hint.textContent = "실행 실패: " + (e.message || e);
-      runBtn.disabled = false;
+      console.warn("[WS] 파싱 실패:", e);
     }
-  }
-  runBtn.addEventListener("click", runNext);
+  };
+}
 
-  // ── 렌더 ──
-  const chat = document.getElementById("chat");
-  let pendingBot = null;
-  let statusTurn = null;
-  let statusBody = null;
-  const scrollDown = () => chat.scrollTop = chat.scrollHeight;
-  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function handleMessage(msg) {
+  switch (msg.type) {
+    case "speaking":
+      const speaking = msg.speaking ?? msg.is_speaking ?? false;
+      setSpeaking(speaking);
+      if (msg.text) updateSpeechBubble(msg.text);
+      document.getElementById("speech-bubble").classList.toggle("speaking", speaking);
+      break;
 
-  function showStatus(text) {
-    if (!statusTurn) {
-      statusTurn = document.createElement("div");
-      statusTurn.className = "turn bot";
-      statusTurn.innerHTML = `<div class="avatar">🛠️</div><div class="body"></div>`;
-      chat.appendChild(statusTurn);
-      statusBody = statusTurn.querySelector(".body");
-    }
-    statusBody.innerHTML = `<div class="intro">${esc(text)}</div>`;
-    scrollDown();
-  }
-
-  function clearStatus() {
-    if (statusTurn) statusTurn.remove();
-    statusTurn = null;
-    statusBody = null;
-  }
-
-  function addUser(text) {
-    clearStatus();
-    const t = document.createElement("div");
-    t.className = "turn user";
-    t.innerHTML = `<div class="text">${esc(text)}</div>`;
-    chat.appendChild(t);
-    const b = document.createElement("div");
-    b.className = "turn bot";
-    b.innerHTML = `<div class="avatar">🛠️</div><div class="body"><div class="typing"><span></span><span></span><span></span></div></div>`;
-    chat.appendChild(b);
-    pendingBot = b.querySelector(".body");
-    scrollDown();
-  }
-
-  function renderBot(text) {
-    if (!pendingBot) {
-      const b = document.createElement("div");
-      b.className = "turn bot";
-      b.innerHTML = `<div class="avatar">🛠️</div><div class="body"></div>`;
-      chat.appendChild(b);
-      pendingBot = b.querySelector(".body");
-    }
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-    let html = "";
-    for (const line of lines) {
-      const m = line.match(/^\[case:#(\d+)\]\s+(\S+)\s+(\S+)\s+[—-]\s+(.*)$/);
-      if (m) {
-        const [, id, date, sol, summary] = m;
-        html += `<div class="case"><div class="cid">#${id}</div>`
-              + `<div class="meta"><span class="sol">${esc(sol)}</span> · ${esc(date)}</div>`
-              + `<div class="summary">${esc(summary)}</div></div>`;
-      } else if (line.startsWith("※")) {
-        html += `<div class="insight">${esc(line.replace(/^※\s*/, ""))}</div>`;
-      } else {
-        html += `<div class="intro">${esc(line)}</div>`;
+    case "audio_frames":
+      if (Array.isArray(msg.frames)) {
+        pushAudioFrames(msg.frames, msg.fps);
       }
+      break;
+
+    case "state":
+      document.getElementById("status-turn").textContent = `이야기 ${msg.turn || 0}번`;
+      break;
+
+    case "llm":
+      updateSpeechBubble(msg.text);
+      break;
+
+    case "stt":
+      console.log("[친구]", msg.text);
+      break;
+
+    case "status":
+      handleStatus(msg);
+      break;
+  }
+}
+
+function handleStatus(msg) {
+  const overlay = document.getElementById("loading-overlay");
+  const msgEl = document.getElementById("loading-msg");
+  if (msg.message) msgEl.textContent = msg.message;
+  if (msg.state === "ready") {
+    overlay.classList.add("hidden");
+  } else {
+    overlay.classList.remove("hidden");
+  }
+}
+
+function updateSpeechBubble(text) {
+  document.getElementById("speech-bubble").textContent = text;
+}
+
+connect();
+</script>
+
+<script>
+// ── 데모 모드 전용 트리거 ──────────────────────────────────
+// 서버가 demo 모드일 때만 "데모 실행" 버튼 표시. 클릭 시 녹음된 아동 질문
+// 음성을 먼저 들려주고(시연 영상용), 끝나면 동일 파일을 파이프라인에 투입.
+(async function setupDemo() {
+  let mode;
+  try {
+    mode = await (await fetch("/api/v1/runtime/mode")).json();
+  } catch (e) { return; }
+  if (!mode || !mode.demo_enabled) return;
+
+  const btn = document.createElement("button");
+  btn.textContent = "▶ 데모 실행";
+  btn.style.cssText =
+    "position:fixed; left:24px; bottom:24px; z-index:200; padding:12px 20px;" +
+    "border:none; border-radius:24px; background:#87c7f5; color:#fff; font-weight:700;" +
+    "font-size:14px; cursor:pointer; box-shadow:0 6px 18px rgba(135,199,245,0.45);";
+  document.body.appendChild(btn);
+
+  let running = false;
+  btn.addEventListener("click", async () => {
+    if (running) return;
+    running = true; btn.disabled = true; btn.textContent = "▶ 재생 중...";
+    const release = () => { running = false; btn.disabled = false; btn.textContent = "▶ 데모 실행"; };
+    try {
+      const r = await (await fetch("/api/v1/demo/reserve", { method: "POST" })).json();
+      const triggerRun = async () => {
+        try { await fetch("/api/v1/demo/run", { method: "POST" }); } catch (e) {}
+      };
+      const a = new Audio(r.url);
+      a.onended = triggerRun;
+      a.onerror = triggerRun;
+      a.play().catch(triggerRun);
+    } catch (e) {
+      console.error("[데모] 실패", e);
+    } finally {
+      // 파이프라인 완료(speaking:false)는 별도로 들어오므로 버튼은 잠시 후 해제
+      setTimeout(release, 2500);
     }
-    pendingBot.innerHTML = html || `<div class="typing"><span></span><span></span><span></span></div>`;
-    scrollDown();
-  }
-
-  // ── WebSocket ──
-  const WS_URL = `${location.protocol==="https:"?"wss":"ws"}://${location.host}/ws/avatar`;
-  let ws, timer;
-  const dot = document.getElementById("dot");
-  const stateText = document.getElementById("state-text");
-
-  function connect() {
-    ws = new WebSocket(WS_URL);
-    ws.onopen  = () => { stateText.textContent = "온라인"; clearTimeout(timer); };
-    ws.onclose = () => { stateText.textContent = "재연결 중"; setBusy(false); timer = setTimeout(connect, 2500); };
-    ws.onmessage = e => { try { handle(JSON.parse(e.data)); } catch (err) { console.warn(err); } };
-  }
-  function setBusy(on) { dot.classList.toggle("busy", on); stateText.textContent = on ? "응답 중" : "온라인"; }
-
-  function handle(msg) {
-    switch (msg.type) {
-      case "user_msg":
-        addUser(msg.text || "");
-        break;
-      case "assistant_msg": renderBot(msg.text || ""); break;
-      case "pipeline_status":
-        if (msg.text) showStatus(msg.text);
-        break;
-      case "speaking":
-        setBusy(msg.speaking ?? false);
-        if (msg.speaking === false) {
-          pendingBot = null; demoRunning = false; applyInputMode();
-          hint.textContent = inputMode === "demo"
-            ? "아래 실행을 누르면 다음 음성 질의가 입력됩니다."
-            : "마이크 입력 대기 중...";
-        }
-        break;
-      case "status": applyStatus(msg.state, msg.message); break;
-    }
-  }
-  function applyStatus(state, message) {
-    const o = document.getElementById("warmup-overlay");
-    const warming = state === "warming";
-    o.classList.toggle("show", warming);
-    if (message) document.getElementById("warmup-msg").textContent = message;
-    runBtn.disabled = warming || inputMode !== "demo" || demoRunning;
-    stateText.textContent = warming ? "가동 중" : "온라인";
-  }
-  loadRuntimeMode();
-  connect();
+  });
+})();
 </script>
 </body>
 </html>

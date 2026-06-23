@@ -69,24 +69,47 @@ def create_app(pipeline: VoicePipeline, input_mode: str = "demo") -> FastAPI:
 
 
 async def mic_loop(pipeline: VoicePipeline):
-    from domains.audio_input.recorder import AudioRecorder
-    pipeline.set_loop(asyncio.get_running_loop())
-    recorder = AudioRecorder(on_speech_start=pipeline.trigger_prefill)
+    from domains.audio_input.recorder import AudioRecorder, input_device_available
+    from api.avatar_ws import set_mic_ready
+    loop = asyncio.get_running_loop()
+    pipeline.set_loop(loop)
+
+    async def _ensure_mic(prev_ok: bool) -> bool:
+        """마이크 가용성 확인. 상태가 바뀔 때만 프론트에 알림."""
+        ok = await loop.run_in_executor(None, input_device_available)
+        if ok != prev_ok:
+            await set_mic_ready(ok)
+        if not ok:
+            print("[마이크] 연결 대기 중...")
+            await asyncio.sleep(2)
+        return ok
+
+    # 마이크가 연결될 때까지 대기 (없으면 프론트에 'no_mic' 표시)
+    mic_ok = False
+    while not mic_ok:
+        mic_ok = await _ensure_mic(mic_ok)
+
+    # VAD 모델 로딩은 무거우므로 executor에서 — 이벤트 루프(웹 서빙)를 막지 않음
+    recorder = await loop.run_in_executor(
+        None, lambda: AudioRecorder(on_speech_start=pipeline.trigger_prefill)
+    )
     print("=" * 50)
     print("  마이크 루프 시작 (백그라운드)")
     print("=" * 50)
+
     while True:
         try:
-            from api.avatar_ws import broadcast
-            await broadcast({"type": "pipeline_status", "text": "마이크 입력 대기 중..."})
+            mic_ok = await _ensure_mic(mic_ok)
+            if not mic_ok:
+                continue
             audio_path = await recorder.record_async()
             if not audio_path:
                 continue
-            result     = await pipeline.run(audio_path)
+            result = await pipeline.run(audio_path)
             if result["user_text"]:
                 print(f"\n사용자: {result['user_text']}")
                 print(f"AI    : {result['ai_text']}\n")
-        except KeyboardInterrupt:
+        except asyncio.CancelledError:
             print("\n[마이크 루프] 종료")
             break
         except Exception as e:
@@ -113,9 +136,9 @@ async def run_once(audio_path: str):
 
 
 async def run_replay(folder: str):
-    """녹음 파일 폴더를 정렬 순서대로 실제(비-DEMO) 파이프라인에 흘려보냄.
+    """녹음 파일 폴더를 정렬 순서대로 실제 파이프라인에 흘려보냄.
     마이크 없이 시연 영상을 찍을 때 — 사전 녹음한 질문 음성을 폴더에 넣고
-    실제 STT→LLM→케이스검색→grounding→TTS 전체 경로를 그대로 재현."""
+    실제 STT→LLM→TTS 전체 경로를 그대로 재현."""
     wav_files = sorted(
         f for f in os.listdir(folder) if f.lower().endswith(".wav")
     )
@@ -176,8 +199,10 @@ async def run_loop():
         await disconnect()
 
 
-async def run_server(host: str, port: int):
-    """FastAPI 서버 실행. 마이크 입력은 loop 모드에서만 사용한다."""
+async def run_server(host: str, port: int, input_mode: str = "mic"):
+    """FastAPI 서버 실행. 기본은 mic 모드 — 아이가 마이크로 말하면 VAD가
+    잡아 파이프라인을 돌리고 응답을 브라우저로 브로드캐스트(원본 POBY 방식).
+    워밍업은 create_app lifespan(DB connect 이후)에서 1회 트리거된다."""
     import uvicorn
 
     stt       = WhisperEngine()
@@ -186,7 +211,7 @@ async def run_server(host: str, port: int):
     event_bus = EventBus()
     pipeline  = VoicePipeline(stt, llm, tts, event_bus=event_bus)
 
-    app = create_app(pipeline)
+    app = create_app(pipeline, input_mode=input_mode)
 
     # uvicorn 설정
     uvicorn_config = uvicorn.Config(
@@ -194,7 +219,6 @@ async def run_server(host: str, port: int):
     )
     server = uvicorn.Server(uvicorn_config)
 
-    asyncio.create_task(pipeline.warmup())
     await server.serve()
 
 
@@ -202,9 +226,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="오프라인 음성 어시스턴트")
     sub    = parser.add_subparsers(dest="mode")
 
-    srv = sub.add_parser("server", help="FastAPI 서버 + 마이크 루프 실행")
+    srv = sub.add_parser("server", help="FastAPI 서버 실행")
     srv.add_argument("--host", default=config.API_HOST)
     srv.add_argument("--port", type=int, default=config.API_PORT)
+    srv.add_argument(
+        "--input", choices=["mic", "demo"], default="mic",
+        help="mic: 본 서비스(마이크 실시간) / demo: 녹음된 데모 음성 재생",
+    )
 
     once = sub.add_parser("once", help="WAV 파일 1회 처리")
     once.add_argument("audio", help="처리할 WAV 파일 경로")
@@ -217,7 +245,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.mode == "server":
-        asyncio.run(run_server(args.host, args.port))
+        asyncio.run(run_server(args.host, args.port, args.input))
     elif args.mode == "once":
         asyncio.run(run_once(args.audio))
     elif args.mode == "replay":

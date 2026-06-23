@@ -58,3 +58,7 @@ local_benchmark*
 .env
 .env.local
 .env.*.local
+
+# Windows shell/curl accidental output file
+nul
+**/nul

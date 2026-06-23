@@ -13,6 +13,7 @@ class LlamaEngine:
         self.top_p          = config.LLM_TOP_P
         self.top_k          = config.LLM_TOP_K
         self.repeat_penalty = config.LLM_REPEAT_PENALTY
+        self.last_ttft_ms: float = -1.0  # 직전 stream_sync의 요청→첫 토큰(ms)
 
     def _check_server(self) -> None:
         try:
@@ -86,7 +87,33 @@ class LlamaEngine:
         }
 
         buffer = ""
-        sentence_endings = (".", "!", "?", "~", "。", "！", "？", "\n")
+        # 첫 음성을 빨리 내보내기 위해 문장부호뿐 아니라 쉼표/구두점에서도 끊고,
+        # 구두점이 없어도 일정 길이(soft_max)를 넘으면 마지막 공백에서 흘린다.
+        break_chars = set(".!?~。！？\n,，、:")
+        soft_max = 16
+
+        def flush_chunks(buf: str, final: bool):
+            """버퍼에서 끊을 수 있는 만큼 청크를 떼어 callback. 남은 버퍼 반환."""
+            while buf:
+                cut = -1
+                for j, ch in enumerate(buf):
+                    if ch in break_chars:
+                        cut = j + 1
+                        break
+                if cut == -1:
+                    if len(buf) >= soft_max:
+                        sp = buf.rfind(" ", 0, soft_max)
+                        cut = (sp + 1) if sp > 0 else soft_max
+                    else:
+                        break
+                chunk = buf[:cut].strip()
+                if chunk:
+                    callback(chunk)
+                buf = buf[cut:]
+            if final and buf.strip():
+                callback(buf.strip())
+                buf = ""
+            return buf
 
         t_request_start = time.perf_counter()
         
@@ -114,25 +141,18 @@ class LlamaEngine:
                         continue
                     if not first_token_logged:
                         ttft_ms = (time.perf_counter() - t_request_start) * 1000
+                        self.last_ttft_ms = ttft_ms
                         print(f"\n[Timing] {label} TTFT (요청 -> 첫 토큰): {ttft_ms:.0f}ms")
                         first_token_logged = True
                     chunk_count += 1
                     buffer += delta
                     print(delta, end="", flush=True)
-
-                    for ending in sentence_endings:
-                        if ending in buffer:
-                            parts = buffer.split(ending)
-                            for part in parts[:-1]:
-                                sentence = part.strip()
-                                if sentence:
-                                    callback(sentence + ending)
-                            buffer = parts[-1]
+                    buffer = flush_chunks(buffer, final=False)
                 except Exception:
                     continue
 
-        if buffer.strip():
-            callback(buffer.strip())
+        flush_chunks(buffer, final=True)
+        buffer = ""
 
         total_ms = (time.perf_counter() - t_request_start) * 1000
         print(f"\n[Timing] {label} 전체 응답: {total_ms:.0f}ms, chunks={chunk_count}")

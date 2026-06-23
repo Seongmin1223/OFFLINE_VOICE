@@ -6,6 +6,24 @@ from config import config
 
 from silero_vad import load_silero_vad, VADIterator
 
+
+def input_device_available() -> bool:
+    """현재 사용 가능한 마이크(입력 장치)가 있는지 확인. 블로킹 없이 빠르게 동작.
+    pyaudio 미설치/오류 시에도 안전하게 False 반환."""
+    try:
+        import pyaudio
+        pa = pyaudio.PyAudio()
+        try:
+            for i in range(pa.get_device_count()):
+                if pa.get_device_info_by_index(i).get("maxInputChannels", 0) > 0:
+                    return True
+            return False
+        finally:
+            pa.terminate()
+    except Exception:
+        return False
+
+
 class AudioRecorder:
     def __init__(self, on_speech_start=None):
         self.sample_rate = config.AUDIO_SAMPLE_RATE
