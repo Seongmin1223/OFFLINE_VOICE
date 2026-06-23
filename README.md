@@ -13,6 +13,10 @@ WAV / Microphone
 
 외부 API 호출 없이 실행하는 것을 목표로 합니다. 단, 최초 설치와 모델/바이너리 다운로드 시에는 네트워크가 필요합니다.
 
+## 프론트엔드 화면
+
+![POBY 프론트엔드 데모 화면](docs/images/frontend-demo.png)
+
 ## 주요 기능
 
 - 아동 음성용 Whisper-small 파인튜닝 모델을 `whisper.cpp` 서버로 추론
