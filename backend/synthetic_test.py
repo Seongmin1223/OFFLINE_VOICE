@@ -145,7 +145,7 @@ async def scenario_3_budget_compliance() -> None:
     print("=" * 60)
 
     memory = MemoryManager()
-    soul   = SoulContainer(SoulConfig.from_preset("pobi"))
+    soul   = SoulContainer(SoulConfig.from_preset("fix_assistant"))
     sys_p  = soul.build_system_prompt()
 
     print(f"  {'budget':>8} | {'messages':>8} | {'추정 사용':>10} | 결과")
@@ -210,7 +210,7 @@ async def scenario_5_tier_distribution() -> None:
     print("=" * 60)
 
     memory = MemoryManager()
-    soul   = SoulContainer(SoulConfig.from_preset("pobi"))
+    soul   = SoulContainer(SoulConfig.from_preset("fix_assistant"))
 
     msgs = await build_messages(
         system_prompt=soul.build_system_prompt(),

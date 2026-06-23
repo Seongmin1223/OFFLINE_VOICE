@@ -147,3 +147,21 @@ async def get_recent_summaries(db: aiosqlite.Connection, limit: int = 5) -> list
     ) as cursor:
         rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# cases: 장애 이력 회상 (3-Tier 대화 메모리와 별도 경로)
+
+async def get_all_cases(db: aiosqlite.Connection) -> list[dict]:
+    """검색 스코어링은 Python 쪽에서 수행 — 수백 건 규모라 전체 적재가 더 단순하고 충분히 빠름."""
+    async with db.execute(
+        "SELECT case_id, scenario, case_date, solution, assignee, work_type, work_status, description FROM cases"
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_case_ids(db: aiosqlite.Connection) -> set[str]:
+    """grounding 검증용 — 존재하는 case_id 집합."""
+    async with db.execute("SELECT case_id FROM cases") as cursor:
+        rows = await cursor.fetchall()
+    return {r["case_id"] for r in rows}

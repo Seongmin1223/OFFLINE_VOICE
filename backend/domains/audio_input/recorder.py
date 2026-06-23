@@ -1,6 +1,5 @@
 import wave
 import asyncio
-import subprocess
 import numpy as np
 import torch
 from config import config
@@ -11,8 +10,8 @@ class AudioRecorder:
     def __init__(self, on_speech_start=None):
         self.sample_rate = config.AUDIO_SAMPLE_RATE
         self.channels = config.AUDIO_CHANNELS
-        self.chunk_size = 512
-        self.max_sec = 60
+        self.chunk_size = config.AUDIO_CHUNK_SIZE
+        self.max_sec = config.AUDIO_MAX_SEC
         self.output_path = config.AUDIO_RECORD_FILE
         self.on_speech_start = on_speech_start
 
@@ -22,8 +21,8 @@ class AudioRecorder:
         self.vad_iterator = VADIterator(
             self.vad_model,
             sampling_rate = self.sample_rate,
-            threshold=0.8, #사람 목소리 간주의 임계점(수정 가능)
-            min_silence_duration_ms=2000 #2초간 침묵 시 문장이 끝난 것으로 간주(수정 가능)
+            threshold=config.AUDIO_VAD_THRESHOLD,
+            min_silence_duration_ms=int(config.AUDIO_SILENCE_SEC * 1000),
         )
         print("VAD 사용 준비 완료")
         

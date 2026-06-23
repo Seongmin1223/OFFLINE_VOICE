@@ -3,14 +3,15 @@ setlocal enabledelayedexpansion
 title OFFLINE_VOICE Launcher
 
 REM ============================================================
-REM  OFFLINE_VOICE pipeline launcher
-REM  - Reads backend\.env for paths/ports/options
+REM  OFFLINE_VOICE main launcher
+REM  - Reads .env for paths/ports/options
+REM  - Starts LLM server + FastAPI UI + microphone loop
 REM  - Auto-detects py310 python.exe (override with PY310_PYTHON in .env)
 REM  - No Korean inside this file (cp949/utf-8 conflict avoidance)
 REM ============================================================
 
 set "ROOT=%~dp0"
-set "ENV_FILE=%ROOT%backend\.env"
+set "ENV_FILE=%ROOT%.env"
 
 if not exist "%ENV_FILE%" (
     echo [ERROR] .env not found: %ENV_FILE%
@@ -31,7 +32,7 @@ for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%ENV_FILE%") do (
 )
 
 REM ---- Sanity check required vars ----
-for %%V in (WHISPER_BIN_PATH WHISPER_MODEL_PATH LLAMA_BIN_PATH LLAMA_MODEL_PATH) do (
+for %%V in (WHISPER_MODEL_PATH LLAMA_BIN_PATH LLAMA_MODEL_PATH TTS_MODEL_PATH AUDIO_RECORD_FILE) do (
     if not defined %%V (
         echo [ERROR] missing %%V in .env
         pause & exit /b 1
@@ -39,10 +40,6 @@ for %%V in (WHISPER_BIN_PATH WHISPER_MODEL_PATH LLAMA_BIN_PATH LLAMA_MODEL_PATH)
 )
 
 REM ---- Split exe paths into dir + name ----
-for %%I in ("%WHISPER_BIN_PATH%") do (
-    set "WHISPER_DIR=%%~dpI"
-    set "WHISPER_EXE=%%~nxI"
-)
 for %%I in ("%LLAMA_BIN_PATH%") do (
     set "LLAMA_DIR=%%~dpI"
     set "LLAMA_EXE=%%~nxI"
@@ -60,27 +57,29 @@ if not defined PY set "PY=python"
 
 echo ------------------------------------------------------------
 echo  python    : %PY%
-echo  whisper   : %WHISPER_BIN_PATH%
+echo  stt       : in-process Whisper
 echo  llama     : %LLAMA_BIN_PATH%
 echo  api port  : %API_PORT%
+echo  input     : microphone
 echo ------------------------------------------------------------
 echo.
 
-echo [1/3] Whisper STT  (port 8081)
-start "Whisper STT Server" cmd /k ""%WHISPER_DIR%%WHISPER_EXE%" -m "%WHISPER_MODEL_PATH%" -l %WHISPER_LANGUAGE% --port 8081"
-timeout /t 5 /nobreak >nul
-
-echo [2/3] Llama LLM    (port 8080)
+echo [1/2] Llama LLM    (port 8080)
 REM   --mlock        : keep model pages resident in RAM (no swap)
 REM   --cache-reuse  : aggressive prefix matching across requests
 REM   -b / -ub       : prompt-eval batch sizes (smaller -^> faster first token on CPU)
 REM   -fa on         : flash attention (memory + speed)
-start "Llama LLM Server" cmd /k ""%LLAMA_DIR%%LLAMA_EXE%" -m "%LLAMA_MODEL_PATH%" -c %LLM_CONTEXT_SIZE% -t %LLM_THREADS% -b 256 -ub 256 -fa on --mlock --cache-reuse 256 --port 8080"
+set "LLM_CPU_THREADS=%LLM_THREADS%"
+start "Llama LLM Server" cmd /k ""%LLAMA_DIR%%LLAMA_EXE%" -m "%LLAMA_MODEL_PATH%" -c %LLM_CONTEXT_SIZE% -t %LLM_CPU_THREADS% -b 128 -ub 128 -fa on --mlock --cache-reuse 256 --port 8080"
 timeout /t 7 /nobreak >nul
 
-echo [3/3] FastAPI Backend
-start "FastAPI Backend" cmd /k "cd /d "%ROOT%backend" && "%PY%" main.py server"
+echo [2/2] FastAPI Backend + microphone loop
+start "FastAPI Backend + Mic" cmd /k "set PYTHONUTF8=1 && set PYTHONIOENCODING=utf-8 && cd /d "%ROOT%backend" && "%PY%" -u main.py server --mic"
+timeout /t 10 /nobreak >nul
+start "" http://localhost:%API_PORT%
 
 echo.
-echo All three windows launched. Close any of them to stop that service.
+echo Main app launched. The browser UI listens to microphone input.
+echo Demo mode is separate: use RUN_DEMO.bat.
+echo Close the LLM and Backend windows to stop services.
 pause

@@ -34,28 +34,24 @@ class Config:
     LLM_REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", "1.1"))
     LLM_THREADS = int(os.getenv("LLM_THREADS", "4"))
     LLM_CONTEXT_SIZE = int(os.getenv("LLM_CONTEXT_SIZE", "512"))
-    LLM_SYSTEM_PROMPT = "너는 5살 아이들의 다정한 친구, 귀여운 곰돌이 인형 '포비'야. 항상 친절하고 따뜻하게 아이들의 눈높이에 맞춰 반말로 대답해야 해."
     LLM_SERVER_URL = os.getenv("LLM_SERVER_URL", "http://127.0.0.1:8080")
 
-    # TTS — 레거시 변수. MeloTTS/OpenVoice 는 piper_engine.py 안의 하드코딩 경로,
-    # Typecast 모드는 typecast_engine.py 가 환경변수로 직접 처리하므로
-    # 이 4개는 어디서도 읽지 않음. strict 체크 제거(빈 값/미설정 허용).
+    # TTS — MeloTTS KR ONNX. TTS_CONFIG_PATH는 호환용으로만 남아있다.
     TTS_MODEL = os.getenv("TTS_MODEL_PATH", "unused")
     TTS_CONFIG = os.getenv("TTS_CONFIG_PATH", "unused")
+    TTS_VOICE = os.getenv("TTS_VOICE", "af_kore")
     PIPER_BIN = os.getenv("PIPER_BIN_PATH", "unused")
     TTS_OUTPUT_FILE = os.getenv("TTS_OUTPUT_FILE", "unused")
 
     #AUDIO
     AUDIO_SAMPLE_RATE = int(os.getenv("AUDIO_SAMPLE_RATE", "16000"))
     AUDIO_CHANNELS = int(os.getenv("AUDIO_CHANNELS", "1"))
-    AUDIO_CHUNK_SIZE = int(os.getenv("AUDIO_CHUNK_SIZE", "1024"))
+    AUDIO_CHUNK_SIZE = int(os.getenv("AUDIO_CHUNK_SIZE", "512"))
     AUDIO_SILENCE_THRESH = float(os.getenv("AUDIO_SILENCE_THRESH", "0.08"))
+    AUDIO_VAD_THRESHOLD = float(os.getenv("AUDIO_VAD_THRESHOLD", "0.8"))
     AUDIO_SILENCE_SEC = float(os.getenv("AUDIO_SILENCE_SEC", "2.5"))
     AUDIO_MAX_SEC = float(os.getenv("AUDIO_MAX_SEC", "30.0"))
     AUDIO_RECORD_FILE = get_env_strict("AUDIO_RECORD_FILE", is_path=True)
-
-    # DEMO — true면 STT/LLM 무시하고 demo_script.py를 순서대로 재생 (시연용)
-    DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
 
     # ETC
     API_HOST = os.getenv("API_HOST", "0.0.0.0")

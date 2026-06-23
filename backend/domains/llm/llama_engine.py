@@ -69,7 +69,7 @@ class LlamaEngine:
         print(f"[LLM] 응답: {text[:80]}{'...' if len(text) > 80 else ''}")
         return LLMResponse(text=text)
 
-    def stream_sync(self, messages: list[dict], callback):
+    def stream_sync(self, messages: list[dict], callback, label: str = "LLM"):
         self._check_server()
 
         raw_prompt = self._format_prompt(messages)
@@ -90,8 +90,6 @@ class LlamaEngine:
 
         t_request_start = time.perf_counter()
         
-        time.sleep(2.0)
-
         first_token_logged = False
         chunk_count = 0
 
@@ -116,7 +114,7 @@ class LlamaEngine:
                         continue
                     if not first_token_logged:
                         ttft_ms = (time.perf_counter() - t_request_start) * 1000
-                        print(f"\n[Timing] LLM TTFT (요청 → 첫 토큰): {ttft_ms:.0f}ms")
+                        print(f"\n[Timing] {label} TTFT (요청 -> 첫 토큰): {ttft_ms:.0f}ms")
                         first_token_logged = True
                     chunk_count += 1
                     buffer += delta
@@ -137,16 +135,16 @@ class LlamaEngine:
             callback(buffer.strip())
 
         total_ms = (time.perf_counter() - t_request_start) * 1000
-        print(f"\n[Timing] LLM 전체 응답: {total_ms:.0f}ms, chunks={chunk_count}")
+        print(f"\n[Timing] {label} 전체 응답: {total_ms:.0f}ms, chunks={chunk_count}")
 
     async def generate(self, messages: list[dict]) -> str:
         loop   = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, self.generate_sync, messages)
         return result.text
 
-    async def stream(self, messages: list[dict], callback):
+    async def stream(self, messages: list[dict], callback, label: str = "LLM"):
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.stream_sync, messages, callback)
+        await loop.run_in_executor(None, self.stream_sync, messages, callback, label)
 
     def prefill_sync(self, messages: list[dict]) -> float:
         """KV cache 채우기 목적의 prefill. max_tokens=1로 응답 받고 무시.

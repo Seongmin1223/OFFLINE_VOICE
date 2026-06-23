@@ -1,6 +1,5 @@
 import asyncio
 import re
-import requests
 from config import config
 from domains.stt.models import STTResult
 
@@ -9,53 +8,59 @@ _NOISE_PATTERN = re.compile(r'^[\s\-\.\,\!\/\(\)\[\]]+$')
 
 
 class WhisperEngine:
+    """파인튜닝 Whisper-small(아동음성 LoRA 병합본)을 transformers로 in-process 추론.
+    whisper.cpp 서버(8081) 불필요 — 모델을 서버 기동 시 RAM에 적재한다.
+    config.WHISPER_MODEL 은 merged HF 모델 디렉토리를 가리킨다.
+    """
 
     def __init__(self):
-        self.server_url = config.WHISPER_SERVER_URL
-        self.language   = config.WHISPER_LANGUAGE
+        from transformers import WhisperForConditionalGeneration, WhisperProcessor
+        import torch
 
-    def _check_server(self) -> None:
+        model_path    = config.WHISPER_MODEL
+        self.language = config.WHISPER_LANGUAGE
+
+        print(f"[STT] 파인튜닝 Whisper 로딩... ({model_path})")
+        self.model = WhisperForConditionalGeneration.from_pretrained(model_path)
+        self.model.eval()
+        self.processor = WhisperProcessor.from_pretrained(model_path)
+        # 한국어·전사 강제 (transformers 4.27 호환: forced_decoder_ids)
+        self._forced = self.processor.get_decoder_prompt_ids(
+            language="korean", task="transcribe"
+        )
         try:
-            requests.get(f"{self.server_url}/", timeout=10)
-        except Exception as e:
-            raise RuntimeError(
-                f"whisper-server 연결 실패 [{type(e).__name__}] {e}\n"
-                f"  target: {self.server_url}/\n"
-                "  새 터미널에서 먼저 실행:\n"
-                f"  {config.WHISPER_BIN} "
-                f"-m {config.WHISPER_MODEL} -l {config.WHISPER_LANGUAGE} --port {config.WHISPER_SERVER_URL.split(':')[-1]}"
-            )
+            torch.set_num_threads(config.WHISPER_THREADS)
+        except Exception:
+            pass
+        self._torch = torch
+        print("[STT] Whisper 준비 완료")
 
     def _is_noise(self, text: str) -> bool:
-        """노이즈성 텍스트 여부 확인."""
         if not text or len(text) < 2:
             return True
-        # 특수문자/하이픈만 있는 경우
         if _NOISE_PATTERN.match(text):
             return True
-        # 한글/영문 한 글자도 없는 경우
         if not re.search(r'[가-힣a-zA-Z]', text):
             return True
         return False
 
     def transcribe_sync(self, audio_path: str) -> STTResult:
-        self._check_server()
+        import soundfile as sf
 
         print(f"[STT] 음성 인식 중... ({audio_path})")
-        with open(audio_path, "rb") as f:
-            response = requests.post(
-                f"{self.server_url}/inference",
-                files={"file": f},
-                data={"language": self.language},
-                timeout=30,
-            )
+        audio, sr = sf.read(audio_path)
+        # 스테레오면 모노로 평균 (녹음 파일은 보통 16kHz mono)
+        if getattr(audio, "ndim", 1) > 1:
+            audio = audio.mean(axis=1)
 
-        if response.status_code != 200:
-            raise RuntimeError(f"whisper-server 오류: {response.text}")
+        feat = self.processor(
+            audio, sampling_rate=16000, return_tensors="pt"
+        ).input_features
 
-        text = response.json().get("text", "").strip()
+        with self._torch.no_grad():
+            ids = self.model.generate(feat, forced_decoder_ids=self._forced)
+        text = self.processor.batch_decode(ids, skip_special_tokens=True)[0].strip()
 
-        # 노이즈 필터링
         if self._is_noise(text):
             print(f"[STT] 노이즈 필터링: {text!r}")
             text = ""

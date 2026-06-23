@@ -52,7 +52,28 @@ async def connect() -> None:
     from database.schema import init_schema
     await init_schema(_db)
 
+    await _seed_cases_if_empty(_db)
+
     logger.info(f"DB 연결: {db_path}")
+
+
+async def _seed_cases_if_empty(db: aiosqlite.Connection) -> None:
+    """cases 테이블이 비어 있으면 seed_cases.csv로 1회 적재.
+
+    696건 CSV가 도착하면 같은 컬럼 체계이므로 이 파일을 교체하기만 하면 됨.
+    """
+    async with db.execute("SELECT COUNT(*) FROM cases") as cursor:
+        row = await cursor.fetchone()
+    if row[0] > 0:
+        return
+
+    seed_path = Path(__file__).parent / "seed_cases.csv"
+    if not seed_path.exists():
+        return
+
+    from database.case_importer import import_cases_from_csv
+    count = await import_cases_from_csv(db, str(seed_path))
+    logger.info(f"cases 시드 적재: {count}건 ({seed_path.name})")
 
 
 async def disconnect() -> None:

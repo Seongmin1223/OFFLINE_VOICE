@@ -6,6 +6,7 @@ init_schema()는 connect() 내부에서 호출됨.
   Tier 3: session_summaries
   Tier 2: facts
   Tier 1: turns
+  cases: 장애 이력 회상 (3-Tier 대화 메모리와 별도 경로)
 """
 
 from __future__ import annotations
@@ -70,6 +71,29 @@ async def init_schema(db: aiosqlite.Connection) -> None:
     await db.execute("""
         CREATE INDEX IF NOT EXISTS idx_turns_session
         ON turns(session_id, turn_num DESC)
+    """)
+
+    # cases: 장애 이력 회상 (3-Tier 대화 메모리와 별도 경로, CSV 임포터로 적재)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS cases (
+            case_id     TEXT     PRIMARY KEY,
+            scenario    TEXT,
+            case_date   TEXT     NOT NULL,
+            solution    TEXT     NOT NULL,
+            assignee    TEXT     NOT NULL,
+            work_type   TEXT,
+            work_status TEXT,
+            description TEXT     NOT NULL
+        )
+    """)
+    # 솔루션/담당자 필터 검색 + 동일 담당자 횡단 패턴 탐지용
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_cases_solution
+        ON cases(solution)
+    """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_cases_assignee
+        ON cases(assignee, case_date)
     """)
 
     await db.commit()
