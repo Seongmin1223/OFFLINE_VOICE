@@ -7,13 +7,19 @@ stt_env/
 # 오디오 출력 파일
 *.wav
 *.mp3
+!backend/demo_audio/
+!backend/demo_audio/*.wav
 
 # 모델 파일
 *.pth
 *.pt
 *.bin
 *.gguf
+*.onnx
+*.safetensors
 models/
+backend/models/
+모델학습/
 
 # Python 캐시
 __pycache__/
@@ -27,9 +33,22 @@ __pycache__/
 .DS_Store
 *.log
 *.db
+*.db-shm
+*.db-wal
+_report_text.txt
+위밋+산학프로젝트_최종보고서_엘렌조.pdf
+
+# Third-party/local checkouts
+backend/vendor/
+backend/eunjeon/
+backend/llama.cpp/
+
+# Local requirement/reference bundles
+위밋 관련 자료/
 
 # 데이터 및 모델 파일 (용량 초과 방지)
 *.zip
+*.arrow
 samples_eval_*/
 whisper_small_011/
 local_benchmark*/
@@ -40,32 +59,6 @@ local_benchmark*
 .env.local
 .env.*.local
 
-
-# AI
-# API keys
-AI/key/
-
-# Merged full models (허깅페이스에서 다운로드)
-AI/poby_merged_r8/model.safetensors
-AI/poby_merged_r16/model.safetensors
-AI/poby_merged_r32/model.safetensors
-
-# Standalone GGUF files
-AI/exaone-3.0-7.8b-instruct-q4_k_m.gguf
-AI/EXAONE-3.5-7.8B-Instruct-Q4_K_M.gguf
-
-# 빌드 산출물 / 바이너리
-*.onnx
-*.exe
-*.dll
-*.safetensors
-*.db-shm
-*.db-wal
-*.arrow
-backend/llama.cpp/build/
-backend/whisper.cpp/build/
-AI/poby_merged_r8/
-AI/poby_merged_r16/
-AI/poby_merged_r32/
-모델학습/STT/data/
-whisper_small_011_ct2/
+# Windows shell/curl accidental output file
+nul
+**/nul
